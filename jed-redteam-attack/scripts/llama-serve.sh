@@ -142,6 +142,7 @@ docker run --rm \
     python -m llama_cpp.server \
         --model "/models/${HF_FILE}" \
         --model_alias "${MODEL_ALIAS}" \
+        --host 0.0.0.0 \
         --port "${PORT}" \
         --n_gpu_layers -1 \
         --n_ctx "${NCTX}" \
