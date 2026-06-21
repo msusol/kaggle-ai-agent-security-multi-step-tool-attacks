@@ -1,4 +1,4 @@
-# 2026-06-21 — First Kaggle run results (v22/v24, GPT-OSS + Gemma)
+# 2026-06-21 — First Kaggle run results (v24 validation · v33 first submission)
 
 ## 1. End-to-end notebook run — scores and analysis
 
@@ -9,10 +9,17 @@ First successful end-to-end notebook run against both real LLM models on Kaggle
 `ImportError` / `AttributeError` chain documented in
 `2026-06-21-kaggle-notebook-sdk-compat.md`. The run took approximately 2.5 hours.
 
-**Uncertainty on notebook version:** v22 was running when we discovered the
-`eval_predicates` returns `list[dict]` (issue 7 in the SDK compat doc) and pushed the
-fix as v24. It is not confirmed whether these scores are from v22 (Phase B silently
-broken) or v24 (all phases correct). The analysis below covers both interpretations.
+**Notebook version timeline:**
+- **v22** — ran to completion but Phase B was silently broken (`eval_predicates` returns
+  `list[dict]`, not `list[str]`; fixed in `triggered_predicates()` as issue 7 in the
+  SDK compat doc). The 22.35 / 14.48 scores are most likely from v22 (Phase A + partial
+  C only; Phase B/D/E crashed).
+- **v24** — pushed the `triggered_predicates` fix. This is considered the first
+  *correct* validation run, though the live scores above came from v22.
+- **v33** — first successful official competition submission (2026-06-21). Fixed two
+  blocking issues: (1) added `submission.csv` placeholder so Kaggle pre-check passes;
+  (2) set `enable_gpu: false` since competition does not allow P100 and submission path
+  skips all model loading. Official score pending.
 
 ### Investigation Checklist
 
@@ -119,19 +126,22 @@ This confirms either many more Phase A hits occurred after t=73s, or other phase
 - Recorded scores in `docs/plans/leaderboard.md` (v0.2 row).
 - Marked Phase 4 notebook run tasks complete in `docs/plans/TODO.md`.
 - Identified v22 Phase B crash as the primary suspect for below-baseline performance.
+- Fixed two v33 submission blockers: added `submission.csv` placeholder write in Cell 20;
+  set `enable_gpu: false` in `kernel-metadata.json` (P100 not allowed in competition,
+  and submission path skips all model loading so no GPU needed).
+- Submitted v33 to the official competition leaderboard (2026-06-21); score pending.
 
 ### Resolution
 
 **Partially resolved.** The pipeline runs end-to-end and produces real scores. The scores
 are below baseline, most likely because Phase B (and D, E) did not run correctly under v22.
-v24 should be submitted to the competition and a new validation run triggered to confirm
-all five phases produce candidates.
+v33 is the first official submission — official public score pending.
 
 ### Follow-ups
 
-- Submit v24 to the Kaggle competition leaderboard to get an official public score.
-- Run v24 validation with verbose Phase B output to confirm `triggered_predicates` now
-  returns strings and beam search produces children.
+- Record v33 official public score in `docs/plans/leaderboard.md` once scoring completes.
+- Run a new validation notebook (with `enable_internet: true`, `enable_gpu: true`) to
+  confirm all five phases produce candidates with the `triggered_predicates` fix in place.
 - Expand Phase A seeds in `payloads/library.py` with model-specific prompts for GPT-OSS
   and Gemma based on the observed hit types (EXFILTRATION via http.post, CONFUSED_DEPUTY
   via email.send).
