@@ -1,6 +1,6 @@
 # TODO — JED Red-Team Attack
 
-<!-- Last updated: 2026-06-20 -->
+<!-- Last updated: 2026-06-21 -->
 
 ---
 
@@ -52,13 +52,15 @@
 - [x] Publish dataset v1 to `gdataranger/jed-aicomp-sdk`
 - [x] Create `kernel-metadata.json` for `gdataranger/jed-attack-agent-security`
 - [x] Fix dataset — publish v3 via staging dir (wheel + attack.py + local_harness.py only)
-- [ ] Push notebook: `kaggle kernels push -p /tmp/jed-kernel`
-- [ ] Run smoke test (Cell 3) — confirm wheel installs correctly on Kaggle
-- [ ] Run full `kaggle_notebook.ipynb` against GPT-OSS 20B (Cell 6)
-- [ ] Run full `kaggle_notebook.ipynb` against Gemma 4 26B (Cell 7)
-- [ ] Record public scores from both models
-- [ ] Submit via Kaggle notebook "Submit" button
+- [x] Push notebook: `kaggle kernels push -p /tmp/jed-kernel`
+- [x] Run smoke test (Cell 3) — confirm wheel installs correctly on Kaggle
+- [x] Run full `kaggle_notebook.ipynb` against GPT-OSS 20B (Cell 6)
+- [x] Run full `kaggle_notebook.ipynb` against Gemma 4 26B (Cell 7)
+- [x] Record public scores from both models (GPT-OSS: 22.35/1000, Gemma: 14.48/1000)
+- [ ] Submit v24 via Kaggle competition "Submit" button — get official public LB score
 - [ ] Monitor leaderboard; compare public vs private score gap
+- [ ] Run v24 validation (new committed run) to confirm Phase B/D/E produce candidates
+- [ ] Expand `payloads/library.py` with model-specific seeds from observed hit types
 
 ---
 
