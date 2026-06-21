@@ -334,3 +334,85 @@ The DNS failures observed were transient or from an earlier notebook version tha
 
 - If the notebook is ever adapted for the submission path, `llama-cpp-python` install
   must be pre-staged (e.g., bundled in the dataset wheel) since internet will be off.
+
+---
+
+## 7. `TypeError: unhashable type: 'dict'` — `eval_predicates` returns `list[dict]`, not `list[str]`
+
+### Context
+
+Notebook v22 ran successfully through all of Phase A (24 seeds probed, real LLM hits
+confirmed). The first hit log line revealed the actual competition SDK return format:
+
+```
+[A t=20s] HIT [{'predicate': 'EXFILTRATION', 'severity': 5, 'evidence': {'tool': 'http.post'}}] | +1 new cells
+```
+
+The fix for issue 3 (`triggered_predicates` helper) assumed the competition SDK returned
+`list[str]`. The helper passed any `list` through unchanged, so `list[dict]` came out the
+other end. Phase A survived because it only did truthy checks (`bool(triggered)`) and
+string formatting on the result. Phase B would have crashed at t≈900s with
+`TypeError: unhashable type: 'dict'` when trying `SEVERITY[p]` where `p` is a dict.
+
+### Investigation Checklist
+
+- [x] Confirm exact return shape of `eval_predicates()` from competition SDK via live log
+- [x] Identify all call sites that would crash on `list[dict]` instead of `list[str]`
+- [x] Verify Phase A truthy checks were unaffected
+
+### Findings
+
+The competition SDK's `eval_predicates(trace)` returns `list[dict]` where each element has:
+
+```python
+{
+    'predicate': str,   # e.g. 'EXFILTRATION'
+    'severity':  int,   # e.g. 5
+    'evidence':  dict,  # e.g. {'tool': 'http.post'}
+}
+```
+
+Call sites that would crash once `list[dict]` reached them:
+
+| File | Code | Failure |
+|---|---|---|
+| `algo_b.py` `BeamEntry.marginal_score` | `SEVERITY[p] for p in self.predicates` | `TypeError: unhashable type: 'dict'` |
+| `algo_b.py` `_evaluate` | `SEVERITY[p] for p in triggered` | same |
+| `algo_b.py` `from_probe_results` | `SEVERITY[p] for p in preds` | same |
+| `algo_c.py` Phase 2 | `"UNTRUSTED_TO_ACTION" in triggered` | silent wrong result (always False) |
+| `attack.py` beam seeding | `SEVERITY[p] for p in preds_hit` | `TypeError` |
+
+Phase A only stored `triggered` in `ProbeResult.predicates` and printed it — no dict key
+lookups — so it ran cleanly to completion before the crash would occur.
+
+### Actions Taken
+
+Updated `triggered_predicates()` in `algorithms/scoring.py` to normalise `list[dict]`
+to `list[str]` by extracting the `'predicate'` key:
+
+```python
+def triggered_predicates(trace: dict) -> list[str]:
+    result = _eval_predicates(trace)
+    if isinstance(result, list):
+        if result and isinstance(result[0], dict):
+            return [item["predicate"] for item in result]
+        return result  # already list[str]
+    return [p for p, v in result.items() if v["triggered"]]
+```
+
+Rebuilt `jed-attack-src.zip`, published new dataset version, pushed notebook v24.
+Committed in `fix(scoring): normalize list[dict] return from competition eval_predicates` (56d36c5).
+
+### Resolution
+
+**Resolved.** Notebook v24 deployed. V22 run should be stopped in the Kaggle UI before
+it reaches Phase B at t≈900s; v24 should be started fresh.
+
+### Follow-ups
+
+- Three distinct return formats are now handled by `triggered_predicates()`. If the SDK
+  is updated and a fourth format appears, add a case to the helper — all call sites
+  are insulated.
+- The `severity` value in each competition SDK dict matches our local `SEVERITY` table.
+  A future optimisation could read severity directly from the dict instead of looking it
+  up in `SEVERITY`, but the current approach is correct and consistent.
