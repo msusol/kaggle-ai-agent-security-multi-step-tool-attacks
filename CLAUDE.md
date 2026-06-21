@@ -23,7 +23,6 @@ source ~/LosusAI/Projects/Kaggle/.venv/bin/activate
 
 ## Project rules
 
-@.claude/rules/citations.md
 @.claude/rules/readme-sync.md
 @.claude/rules/leaderboard.md
 @.claude/rules/dgx-long-runs.md
