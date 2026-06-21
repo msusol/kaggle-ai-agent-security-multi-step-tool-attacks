@@ -85,11 +85,21 @@ echo "  ctx    : $NCTX"
 echo "  cache  : $DOWNLOAD_DIR"
 echo "────────────────────────────────────────────"
 
-# ── Build jed-llama image if needed ───────────────────────────────────────────
-if ! docker image inspect jed-llama:latest > /dev/null 2>&1; then
+# ── Build jed-llama image if missing or REBUILD=1 ─────────────────────────────
+# REBUILD=1 forces a fresh build after Dockerfile.llama changes.
+_NEEDS_BUILD=false
+if [[ "${REBUILD:-0}" == "1" ]]; then
+    echo "REBUILD=1: removing existing jed-llama image..."
+    docker rmi jed-llama:latest 2>/dev/null || true
+    _NEEDS_BUILD=true
+elif ! docker image inspect jed-llama:latest > /dev/null 2>&1; then
+    _NEEDS_BUILD=true
+fi
+
+if [[ "$_NEEDS_BUILD" == "true" ]]; then
     echo ""
-    echo "Building jed-llama image (llama-cpp-python + CUDA)..."
-    echo "First build compiles CUDA kernels — expect ~15 minutes."
+    echo "Building jed-llama image (llama-server C++ binary + CUDA)..."
+    echo "First build clones llama.cpp and compiles CUDA kernels — expect ~20 minutes."
     docker build -t jed-llama:latest -f "${REPO_DIR}/Dockerfile.llama" "${REPO_DIR}"
 fi
 
