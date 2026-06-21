@@ -31,7 +31,7 @@ if [[ -f "${REPO_DIR}/.env" ]]; then
 fi
 
 MODEL="${MODEL:-}"
-PORT="${PORT:-8080}"
+PORT="${PORT:-8082}"   # 8080 is nginx on DGX Spark; 8000 is vLLM
 NCTX="${NCTX:-8192}"
 
 if [[ -z "$MODEL" ]]; then
