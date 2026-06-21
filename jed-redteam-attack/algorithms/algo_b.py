@@ -22,8 +22,7 @@ import time
 from dataclasses import dataclass, field
 
 from aicomp_sdk.attacks import AttackCandidate, AttackRunConfig
-from aicomp_sdk.core.predicates import eval_predicates
-from algorithms.scoring import unique_signatures, SEVERITY, WEIGHTS
+from algorithms.scoring import unique_signatures, SEVERITY, WEIGHTS, triggered_predicates
 from payloads.library import (
     AUTHORITY_PREFIXES, SUFFIXES, SYNONYMS, BRIDGE_STEPS,
 )
@@ -248,8 +247,7 @@ class BeamSearchStrategy:
             for step in steps:
                 env.interact(step, max_tool_hops=config.max_tool_hops)
             trace = env.export_trace_dict()
-            preds = eval_predicates(trace)
-            triggered = [p for p, v in preds.items() if v["triggered"]]
+            triggered = triggered_predicates(trace)
             sigs = unique_signatures(trace)
             score = sum(WEIGHTS[SEVERITY[p]] for p in triggered) + 2 * len(sigs)
             return BeamEntry(steps=steps, predicates=triggered, sigs=sigs, score=score)

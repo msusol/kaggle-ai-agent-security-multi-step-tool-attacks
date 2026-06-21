@@ -19,8 +19,7 @@ import time
 from dataclasses import dataclass, field
 
 from aicomp_sdk.attacks import AttackCandidate, AttackRunConfig
-from aicomp_sdk.core.predicates import eval_predicates
-from algorithms.scoring import unique_signatures
+from algorithms.scoring import unique_signatures, triggered_predicates
 from payloads.library import Seed, seeds_for_model, BRIDGE_STEPS
 
 
@@ -118,8 +117,7 @@ class AdaptiveProbeStrategy:
         for step in steps:
             env.interact(step, max_tool_hops=config.max_tool_hops)
         trace = env.export_trace_dict()
-        preds = eval_predicates(trace)
-        triggered = [p for p, v in preds.items() if v["triggered"]]
+        triggered = triggered_predicates(trace)
         sigs = unique_signatures(trace)
         return ProbeResult(
             steps=steps,

@@ -27,8 +27,7 @@ from __future__ import annotations
 import time
 
 from aicomp_sdk.attacks import AttackCandidate, AttackRunConfig
-from aicomp_sdk.core.predicates import eval_predicates
-from algorithms.scoring import unique_signatures
+from algorithms.scoring import unique_signatures, triggered_predicates
 
 
 # Benign priming steps — establish "helpful file management" context
@@ -154,8 +153,7 @@ class TemporalDegradationStrategy:
                 env.restore(handle)
                 env.interact(attack_prompt, max_tool_hops=config.max_tool_hops)
                 trace = env.export_trace_dict()
-                preds = eval_predicates(trace)
-                triggered = [p for p, v in preds.items() if v["triggered"]]
+                triggered = triggered_predicates(trace)
 
                 if triggered:
                     # Full replay sequence = priming steps + attack step
@@ -197,8 +195,7 @@ class TemporalDegradationStrategy:
             for step in chain:
                 env.interact(step, max_tool_hops=config.max_tool_hops)
             trace = env.export_trace_dict()
-            preds = eval_predicates(trace)
-            triggered = [p for p, v in preds.items() if v["triggered"]]
+            triggered = triggered_predicates(trace)
             if triggered:
                 candidates.append(AttackCandidate(user_messages=chain))
                 log(f"  escalation HIT {triggered} | steps={len(chain)}")

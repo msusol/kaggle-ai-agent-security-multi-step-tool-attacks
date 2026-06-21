@@ -49,8 +49,7 @@ if os.path.isdir(_kaggle_src) and _kaggle_src not in sys.path:
     sys.path.insert(0, _kaggle_src)
 
 from aicomp_sdk.attacks import AttackAlgorithmBase, AttackCandidate, AttackRunConfig
-from aicomp_sdk.core.predicates import eval_predicates
-from algorithms.scoring import unique_signatures, SEVERITY, WEIGHTS
+from algorithms.scoring import unique_signatures, SEVERITY, WEIGHTS, triggered_predicates
 
 from algorithms.algo_a import AdaptiveProbeStrategy
 from algorithms.algo_b import BeamSearchStrategy, BeamEntry
@@ -182,7 +181,7 @@ class AttackAlgorithm(AttackAlgorithmBase):
             for step in c.user_messages:
                 env.interact(step, max_tool_hops=config.max_tool_hops)
             trace = env.export_trace_dict()
-            preds_hit = [p for p, v in eval_predicates(trace).items() if v["triggered"]]
+            preds_hit = triggered_predicates(trace)
             if preds_hit:
                 sigs = unique_signatures(trace)
                 score = sum(WEIGHTS[SEVERITY[p]] for p in preds_hit) + 2 * len(sigs)
