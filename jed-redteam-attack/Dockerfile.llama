@@ -26,7 +26,7 @@ FROM nvcr.io/nvidia/pytorch:26.04-py3
 RUN CMAKE_ARGS="-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=90;100;120" \
     pip install --no-cache-dir \
         "llama-cpp-python[server]>=0.3.8" \
-        "huggingface_hub[cli]>=0.24"
+        "huggingface_hub[cli]>=1.20.0"
 
 # Expose default llama.cpp server port (8080 — different from vLLM's 8000)
 EXPOSE 8080
