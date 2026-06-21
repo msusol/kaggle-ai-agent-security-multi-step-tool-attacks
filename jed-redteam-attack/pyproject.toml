@@ -7,12 +7,11 @@ name = "aicomp_sdk"
 version = "3.1.0.dev0"
 description = "Local stub SDK for the Kaggle JED Red-Team Attack competition (aicomp_sdk-3.1.0)"
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
 requires-python = ">=3.10"
 keywords = ["kaggle", "jed", "red-team", "agent-security", "llm"]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
     "Topic :: Security",
 ]
 dependencies = []
