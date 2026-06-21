@@ -1,34 +1,48 @@
 # ── JED Attack — llama.cpp Server ─────────────────────────────────────────────
 #
-# Serves GGUF competition models (GPT-OSS 20B, Gemma 4 26B) via llama-cpp-python's
-# OpenAI-compatible HTTP server — the same runtime the Kaggle evaluator uses.
+# Builds the llama-server C++ binary with CUDA support — the same runtime
+# the Kaggle evaluator uses to serve GPT-OSS 20B and Gemma 4 26B.
 #
-# Architecture: linux/arm64 (DGX Spark GB10 aarch64, Apple Silicon Mac)
+# The Python wrapper (llama-cpp-python) does NOT support the --jinja flag
+# needed to evaluate GPT-OSS's embedded Jinja2 chat template (including
+# the render_tool_namespace macro for tool injection). The C++ llama-server
+# binary with --jinja does.
+#
+# Architecture: linux/arm64 (DGX Spark GB10 aarch64)
 #
 # Build:
-#   make build-llama
+#   make build-llama        (first build ~20 min — compiles CUDA kernels)
 #
 # Run (handled by scripts/llama-serve.sh):
-#   docker run --rm --privileged --ipc=host --gpus all \
-#     -v <hf_cache>:/root/.cache/huggingface \
-#     -e HF_TOKEN=... \
-#     -p 8080:8080 \
+#   docker run --rm --privileged --gpus all -p 8082:8082 \
+#     -v /path/to/gguf:/models:ro \
 #     jed-llama:latest \
-#     python -m llama_cpp.server \
-#       --model /root/.cache/huggingface/hub/.../gpt-oss-20b-mxfp4.gguf \
-#       --port 8080 --n_gpu_layers -1 --n_ctx 8192
+#     llama-server --model /models/gpt-oss-20b-mxfp4.gguf \
+#       --host 0.0.0.0 --port 8082 --ctx-size 8192 --n-gpu-layers -1 --jinja
 # ─────────────────────────────────────────────────────────────────────────────
 
 FROM nvcr.io/nvidia/pytorch:26.04-py3
 
-# llama-cpp-python with CUDA backend (compiled from source with GGML_CUDA=on)
-# CMAKE_ARGS triggers CUDA kernel compilation; --no-cache-dir keeps the layer small.
-RUN CMAKE_ARGS="-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=90;100;120" \
-    pip install --no-cache-dir \
-        "llama-cpp-python[server]>=0.3.8" \
-        "huggingface_hub[cli]>=1.20.0"
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        cmake git \
+    && rm -rf /var/lib/apt/lists/*
 
-# Expose default llama.cpp server port (8080 — different from vLLM's 8000)
-EXPOSE 8080
+# Clone llama.cpp and build llama-server with CUDA + Blackwell support.
+# GGML_CUDA=ON enables GPU offload.
+# CMAKE_CUDA_ARCHITECTURES covers Hopper (90), Blackwell B100 (100), GB10 (120).
+RUN git clone --depth 1 https://github.com/ggerganov/llama.cpp /opt/llama.cpp \
+    && cmake -B /opt/llama.cpp/build /opt/llama.cpp \
+        -DGGML_CUDA=ON \
+        -DCMAKE_CUDA_ARCHITECTURES="90;100;120" \
+        -DLLAMA_BUILD_SERVER=ON \
+        -DCMAKE_BUILD_TYPE=Release \
+    && cmake --build /opt/llama.cpp/build --target llama-server -j$(nproc)
 
-CMD ["python", "-m", "llama_cpp.server", "--help"]
+ENV PATH="/opt/llama.cpp/build/bin:${PATH}"
+
+# huggingface_hub for model downloads (hf CLI, >= 1.20.0 for 'hf download')
+RUN pip install --no-cache-dir "huggingface_hub[cli]>=1.20.0"
+
+EXPOSE 8082
+
+CMD ["llama-server", "--help"]

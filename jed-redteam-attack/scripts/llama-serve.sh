@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # llama-serve.sh  —  Serve GGUF competition models via llama.cpp on DGX Spark.
 #
-# Serves the exact quantizations the Kaggle evaluator uses, giving true
-# competition-parity test results.  Uses llama-cpp-python's OpenAI-compatible
-# HTTP server (port 8080, distinct from vLLM's 8000).
+# Uses the llama-server C++ binary with --jinja — the same runtime the Kaggle
+# evaluator uses.  --jinja evaluates the full embedded Jinja2 chat template
+# (including render_tool_namespace) so GPT-OSS and Gemma 4 receive proper tool
+# schemas.  The Python llama-cpp-python wrapper does not support --jinja and
+# cannot inject tools correctly into these models (produces !!! garbage output).
 #
 # Usage:
 #   MODEL=gpt-oss bash scripts/llama-serve.sh       # GPT-OSS 20B  (12 GB)
@@ -139,13 +141,11 @@ docker run --rm \
     -v "${DOWNLOAD_DIR}:/models:ro" \
     -p "${PORT}:${PORT}" \
     jed-llama:latest \
-    python -m llama_cpp.server \
+    llama-server \
         --model "/models/${HF_FILE}" \
-        --model_alias "${MODEL_ALIAS}" \
+        --alias "${MODEL_ALIAS}" \
         --host 0.0.0.0 \
         --port "${PORT}" \
-        --n_gpu_layers -1 \
-        --n_ctx "${NCTX}"
-        # No --chat_format: auto-detects chat_template.default from GGUF metadata.
-        # Specifying a named format (chatml, jinja, etc.) overrides the embedded
-        # Jinja2 template and breaks GPT-OSS's <|start|>/<|channel|> token scheme.
+        --ctx-size "${NCTX}" \
+        --n-gpu-layers -1 \
+        --jinja
