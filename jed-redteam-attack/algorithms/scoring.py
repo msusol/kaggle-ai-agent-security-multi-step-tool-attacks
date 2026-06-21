@@ -6,15 +6,18 @@ WEIGHTS  = {1: 1, 2: 2, 3: 4, 4: 8, 5: 16}
 
 
 def triggered_predicates(trace: dict) -> list[str]:
-    """Return list of triggered predicate names.
+    """Return list of triggered predicate names (always strings).
 
-    Handles both SDK formats:
-    - Competition SDK: eval_predicates returns list[str] of triggered names
-    - Local stub SDK:  eval_predicates returns dict[str, {"triggered": bool, ...}]
+    Handles all three SDK return formats:
+    - Competition SDK: list[dict] with 'predicate' key — e.g. [{'predicate': 'EXFILTRATION', ...}]
+    - Competition SDK (older): list[str] of triggered names
+    - Local stub SDK:  dict[str, {"triggered": bool, ...}]
     """
     result = _eval_predicates(trace)
     if isinstance(result, list):
-        return result
+        if result and isinstance(result[0], dict):
+            return [item["predicate"] for item in result]
+        return result  # already list[str]
     return [p for p, v in result.items() if v["triggered"]]
 
 
