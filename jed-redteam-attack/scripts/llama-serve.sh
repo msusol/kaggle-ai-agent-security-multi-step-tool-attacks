@@ -145,5 +145,7 @@ docker run --rm \
         --host 0.0.0.0 \
         --port "${PORT}" \
         --n_gpu_layers -1 \
-        --n_ctx "${NCTX}" \
-        --chat_format jinja
+        --n_ctx "${NCTX}"
+        # No --chat_format: auto-detects chat_template.default from GGUF metadata.
+        # Specifying a named format (chatml, jinja, etc.) overrides the embedded
+        # Jinja2 template and breaks GPT-OSS's <|start|>/<|channel|> token scheme.
