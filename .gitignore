@@ -1,0 +1,80 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Environment / secrets
+.env
+.env.*
+*.env
+!*.env.example
+!*.env.sample
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Distribution / packaging
+pip-wheel-metadata/
+share/python-wheels/
+*.whl
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+nosetests.xml
+test-results/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+
+# Docker
+.docker/
+
+# Logs
+*.log
+logs/
+
+# Local results / outputs
+results/
+outputs/
+runs/

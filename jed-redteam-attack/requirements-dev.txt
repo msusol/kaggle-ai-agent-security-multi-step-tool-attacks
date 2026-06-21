@@ -1,0 +1,5 @@
+# Core dev deps — no GPU, no LLM client needed
+pytest>=7.4
+pytest-cov>=4.0
+ipython>=8.0
+rich>=13.0          # pretty terminal output

@@ -1,0 +1,27 @@
+{
+  "title": "JED aicomp-sdk — Local Stub for Agent Security Competition",
+  "id": "KAGGLE_USERNAME/jed-aicomp-sdk",
+  "licenses": [{"name": "MIT"}],
+  "keywords": [
+    "kaggle competition",
+    "agent security",
+    "red team",
+    "llm",
+    "jed"
+  ],
+  "collaborators": [],
+  "data": [
+    {
+      "description": "Pre-built wheel. Install with: pip install aicomp_sdk-3.1.0.dev0-py3-none-any.whl",
+      "name": "aicomp_sdk-3.1.0.dev0-py3-none-any.whl"
+    },
+    {
+      "description": "Starter attack.py implementing three-phase attack strategy",
+      "name": "attack.py"
+    },
+    {
+      "description": "Local harness mirroring aas-local-validation.ipynb evaluate_redteam()",
+      "name": "local_harness.py"
+    }
+  ]
+}

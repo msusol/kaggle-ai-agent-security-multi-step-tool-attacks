@@ -1,0 +1,3 @@
+# LLM integration deps (Ollama / vLLM / OpenAI)
+openai>=1.30        # works with any OpenAI-compatible endpoint
+httpx>=0.27         # used by openai client

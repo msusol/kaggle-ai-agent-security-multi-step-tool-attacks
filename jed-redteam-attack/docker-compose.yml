@@ -1,0 +1,69 @@
+# docker-compose.yml
+#
+# Three profiles for three workflows:
+#
+#   Mac stub (no LLM):
+#     docker compose --profile dev up
+#
+#   Mac + Ollama (must have ollama serve running on host):
+#     docker compose --profile ollama up
+#
+#   DGX Spark + vLLM (vLLM must be running on Spark — see vllm-serve.sh):
+#     SPARK_IP=<ip> docker compose --profile spark up
+#
+# All profiles mount the current directory so edits to attack.py
+# take effect without rebuilding the image.
+
+services:
+
+  # ── Profile: dev ─────────────────────────────────────────────────────────────
+  # Pure stub env. No LLM. Fastest iteration cycle.
+  dev:
+    build:
+      context: .
+      target: dev
+    image: jed-dev
+    profiles: [dev]
+    volumes:
+      - .:/workspace
+    command: python local_harness.py --budget 60 --verbose
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  # ── Profile: ollama ───────────────────────────────────────────────────────────
+  # Uses Ollama running on the Mac host.
+  # Start Ollama first:  ollama serve  &&  ollama pull llama3.1:8b
+  ollama:
+    build:
+      context: .
+      target: llm
+    image: jed-llm
+    profiles: [ollama]
+    volumes:
+      - .:/workspace
+    command: python local_harness.py --budget 120 --llm --verbose
+    environment:
+      - PYTHONUNBUFFERED=1
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434/v1
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.1:8b}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ── Profile: spark ────────────────────────────────────────────────────────────
+  # Uses vLLM running on the DGX Spark.
+  # Start vLLM on Spark first (see vllm-serve.sh), then:
+  #   SPARK_IP=192.168.1.100 docker compose --profile spark up
+  spark:
+    build:
+      context: .
+      target: llm
+    image: jed-llm
+    profiles: [spark]
+    volumes:
+      - .:/workspace
+    command: python local_harness.py --budget 600 --llm --verbose
+    environment:
+      - PYTHONUNBUFFERED=1
+      - VLLM_BASE_URL=http://${SPARK_IP:-localhost}:8000/v1
+      - VLLM_MODEL=${VLLM_MODEL:-meta-llama/Llama-3.1-8B-Instruct}
+      - VLLM_API_KEY=${VLLM_API_KEY:-vllm}
