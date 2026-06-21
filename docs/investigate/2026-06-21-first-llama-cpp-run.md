@@ -234,10 +234,65 @@ curl -s http://localhost:8082/v1/models | python3 -m json.tool
 
 ---
 
+## Bug 8: `--jinja` PEG parser rejects GPT-OSS tool call output
+
+**Attempt 7** (`harness_20260621_123518.log`) — first clean connection with
+`llama-server --jinja`. Most seeds produced blank lines (model responded
+in text, no tool calls). Two seeds triggered:
+
+```
+Error code: 500 - {'error': {'message':
+  'The model produced output that does not match the expected peg-native format',
+  'type': 'server_error'}}
+```
+
+**What this means:** GPT-OSS **did** attempt tool calls (it generated
+`<|call|>` tokens — confirmed progress). With `--jinja`, `llama-server`
+intercepts ALL `<|call|>` tokens in the output stream and tries to parse
+them through an internal PEG grammar. The parse failed — likely because:
+
+1. Our plain-English TOOL_SCHEMA (in the system prompt) causes GPT-OSS to
+   generate tool call tokens in a slightly different argument format than the
+   model's training template expects
+2. Function names with dots (`fs.read`, `http.post`) become `functions.fs.read`
+   in the `developer` message namespace; the PEG grammar may not handle dots
+   in function names
+
+**Score: 0.0** — PEG errors surface as 500s that `LLMEnv` catches as API errors;
+the tool call is not returned to the harness.
+
+**Root cause:** Mismatch between our TOOL_SCHEMA (plain-English system prompt,
+no `tools=` API parameter) and what `--jinja` + PEG parser expects (structured
+tool definitions via `tools=` API, JSON argument format matching the template).
+
+**Fix to try:** Remove `--jinja`. Without it, `llama-server` returns raw model
+output (text + `<|call|>` tokens as plain text) instead of trying to parse
+tool calls via PEG. Our `LLMEnv` receives the full text response and can
+parse tool calls from it using its existing keyword/pattern logic.
+
+```zsh
+# In llama-serve.sh: drop --jinja from the llama-server command
+# Attempt 8:
+MODEL=gpt-oss bash scripts/llama-serve.sh    # without --jinja
+PORT=8082 MODEL=gpt_oss bash scripts/harness-run.sh
+```
+
+The trade-off: without `--jinja`, GPT-OSS doesn't use its native
+`developer`-role tool schema injection. The model still sees our
+system-prompt tool descriptions and may still generate tool call
+text — just not in the structured PEG-parseable format.
+
+---
+
 ## Next Steps
 
-1. **Wait for Attempt 7 score** — `harness_20260621_123518.log`, 300s budget, model=gpt_oss
-2. **Observe tool-call behaviour** — does GPT-OSS 20B fire `email.send`, `shell.run`?
-   Llama 3.1 8B refused both; GPT-OSS may behave differently
-3. **Record score in leaderboard** — first meaningful DGX run on a competition model
-4. **Run at longer budget** — 900s once tool-call patterns are confirmed
+1. **Remove `--jinja`** from `llama-serve.sh` and run Attempt 8 — see if
+   LLMEnv can parse tool calls from raw GPT-OSS text output
+2. **Alternatively:** Send tool definitions via `tools=` API parameter
+   (rename dots to underscores: `fs_read`, `http_post`) and let `--jinja`
+   handle injection — then GPT-OSS uses its native template for tool calling
+3. **Investigate real aicomp_sdk LLMEnv** — the competition's `GymAttackEnv`
+   must handle GPT-OSS tool calls correctly; understanding how it sends
+   prompts and parses responses is the highest-value thing to learn next
+4. **Record score in leaderboard** when first non-zero result is achieved
+5. **Run at 900s** once tool-call patterns are confirmed
