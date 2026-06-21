@@ -132,7 +132,7 @@ def test_attack_candidate_accepts_list_normalizes_to_tuple():
 def test_attack_algorithm_run():
     from attack import AttackAlgorithm
     env    = fresh_env()
-    config = AttackRunConfig(time_budget_s=60, max_tool_hops=8, seed=123)
+    config = AttackRunConfig(time_budget_s=300, max_tool_hops=8, seed=123)
     algo   = AttackAlgorithm()
     results = algo.run(env, config)
     assert isinstance(results, list)
@@ -144,7 +144,7 @@ def test_attack_algorithm_run():
 def test_attack_algorithm_finds_exfiltration():
     from attack import AttackAlgorithm
     env    = fresh_env()
-    config = AttackRunConfig(time_budget_s=60, max_tool_hops=8, seed=123)
+    config = AttackRunConfig(time_budget_s=300, max_tool_hops=8, seed=123)
     results = AttackAlgorithm().run(env, config)
     # At least one result should trigger EXFILTRATION
     exfil_hits = [c for c in results

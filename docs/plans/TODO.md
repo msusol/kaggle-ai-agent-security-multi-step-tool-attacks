@@ -6,8 +6,8 @@
 
 ## Phase 1 — MacBook: Stub Env + Local Scoring
 
-- [ ] Activate shared venv: `source ~/LosusAI/Projects/Kaggle/.venv/bin/activate`
-- [ ] Confirm `pytest tests/ -v` — all 14 tests green
+- [x] Activate shared venv: `source ~/LosusAI/Projects/Kaggle/.venv/bin/activate`
+- [x] Confirm `pytest tests/ -v` — all 14 tests green
 - [ ] Run `python attack.py` — no import errors, >0 candidates returned
 - [ ] Run `python local_harness.py --budget 300` — all 5 phases complete within budget
 - [ ] Verify stub score ≥ 0.3 and 8 unique cells covered

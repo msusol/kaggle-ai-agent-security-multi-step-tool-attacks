@@ -59,7 +59,7 @@ BUDGET_FRACTIONS = {
     "D": 0.20,
     "E": 0.10,
 }
-SAFETY_MARGIN = 50   # seconds reserved at the end (reduced for local testing)
+_SAFETY_MARGIN_MAX = 50  # cap for large budgets (e.g. Kaggle 9000s)
 
 
 class AttackAlgorithm(AttackAlgorithmBase):
@@ -78,7 +78,8 @@ class AttackAlgorithm(AttackAlgorithmBase):
         self.verbose = verbose
 
     def run(self, env, config: AttackRunConfig) -> list[AttackCandidate]:
-        total_budget = config.time_budget_s - SAFETY_MARGIN
+        safety_margin = min(_SAFETY_MARGIN_MAX, config.time_budget_s * 0.10)
+        total_budget = config.time_budget_s - safety_margin
         t_start = time.time()
 
         def elapsed() -> float:
