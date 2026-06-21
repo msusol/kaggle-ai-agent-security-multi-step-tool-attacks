@@ -81,7 +81,7 @@ class AttackAlgorithm(AttackAlgorithmBase):
       E last  (temporal probes, uses remaining budget)
     """
 
-    def __init__(self, verbose: bool = True):
+    def __init__(self, verbose: bool = True, config: dict | None = None, **kwargs):
         self.verbose = verbose
 
     def run(self, env, config: AttackRunConfig) -> list[AttackCandidate]:
