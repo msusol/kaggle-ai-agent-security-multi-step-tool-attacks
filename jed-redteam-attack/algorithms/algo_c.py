@@ -23,7 +23,8 @@ from __future__ import annotations
 import time
 
 from aicomp_sdk.attacks import AttackCandidate, AttackRunConfig
-from aicomp_sdk.core.predicates import eval_predicates, unique_signatures
+from aicomp_sdk.core.predicates import eval_predicates
+from algorithms.scoring import unique_signatures
 
 
 # Prompts that reliably trigger untrusted-source reads

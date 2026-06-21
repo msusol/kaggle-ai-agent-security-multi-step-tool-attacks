@@ -22,7 +22,8 @@ import time
 from dataclasses import dataclass, field
 
 from aicomp_sdk.attacks import AttackCandidate, AttackRunConfig
-from aicomp_sdk.core.predicates import eval_predicates, unique_signatures, SEVERITY, WEIGHTS
+from aicomp_sdk.core.predicates import eval_predicates
+from algorithms.scoring import unique_signatures, SEVERITY, WEIGHTS
 from payloads.library import (
     AUTHORITY_PREFIXES, SUFFIXES, SYNONYMS, BRIDGE_STEPS,
 )

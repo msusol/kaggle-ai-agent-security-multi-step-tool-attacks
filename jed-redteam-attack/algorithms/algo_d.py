@@ -27,7 +27,8 @@ import time
 from dataclasses import dataclass
 
 from aicomp_sdk.attacks import AttackCandidate, AttackRunConfig
-from aicomp_sdk.core.predicates import eval_predicates, unique_signatures
+from aicomp_sdk.core.predicates import eval_predicates
+from algorithms.scoring import unique_signatures
 
 
 # Prompts designed to trigger specific tool+arg combinations

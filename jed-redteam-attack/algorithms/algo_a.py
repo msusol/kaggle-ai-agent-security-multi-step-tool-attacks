@@ -19,7 +19,8 @@ import time
 from dataclasses import dataclass, field
 
 from aicomp_sdk.attacks import AttackCandidate, AttackRunConfig
-from aicomp_sdk.core.predicates import eval_predicates, unique_signatures
+from aicomp_sdk.core.predicates import eval_predicates
+from algorithms.scoring import unique_signatures
 from payloads.library import Seed, seeds_for_model, BRIDGE_STEPS
 
 

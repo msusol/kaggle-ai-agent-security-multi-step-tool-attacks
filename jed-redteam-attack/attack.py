@@ -40,10 +40,17 @@ for _cand in glob.glob('/kaggle/input/**/kaggle_evaluation', recursive=True):
         sys.path.insert(0, _root)
     break
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+_work_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _work_dir)
+
+# On Kaggle, algorithms/ and payloads/ live in the dataset (Kaggle auto-extracts the zip)
+_kaggle_src = '/kaggle/input/datasets/gdataranger/jed-aicomp-sdk/jed-attack-src'
+if os.path.isdir(_kaggle_src) and _kaggle_src not in sys.path:
+    sys.path.insert(0, _kaggle_src)
 
 from aicomp_sdk.attacks import AttackAlgorithmBase, AttackCandidate, AttackRunConfig
-from aicomp_sdk.core.predicates import eval_predicates, unique_signatures, SEVERITY, WEIGHTS
+from aicomp_sdk.core.predicates import eval_predicates
+from algorithms.scoring import unique_signatures, SEVERITY, WEIGHTS
 
 from algorithms.algo_a import AdaptiveProbeStrategy
 from algorithms.algo_b import BeamSearchStrategy, BeamEntry

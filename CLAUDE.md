@@ -12,7 +12,7 @@
 All Kaggle competition projects share one `.venv` at the parent level:
 
 ```
-~/LosusAI/Projects/Kaggle/.venv/   (Python 3.14.0)
+~/LosusAI/Projects/Kaggle/.venv/   (Python 3.12.1 — matches Kaggle's runtime)
 ```
 
 Always activate before running Python or pip commands:
