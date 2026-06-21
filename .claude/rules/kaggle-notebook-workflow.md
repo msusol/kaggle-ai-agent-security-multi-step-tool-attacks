@@ -53,7 +53,12 @@ Correct workflow after every push:
 
 Model source format: `{owner}/{model-slug}/{framework}/{instance}/{version}` — derived from the mount path `/kaggle/input/models/{owner}/{model-slug}/{framework}/{instance}/{version}/`.
 
-To add or remove any input, edit the JSON and push — do not use the Kaggle UI.
+**First-time model attachment requires the Kaggle UI** (same pattern as CC0 license for datasets):
+1. Open notebook editor → **+ Add Input** → Models tab
+2. Search and select each model, accept any license prompts
+3. Save Version — after this, `model_sources` in `kernel-metadata.json` persists the attachment on all future `kaggle kernels push` calls
+
+Do not add or remove inputs via the Kaggle UI after the first-time setup — use `kernel-metadata.json` and push.
 
 ## Updating the SDK dataset after code changes
 
