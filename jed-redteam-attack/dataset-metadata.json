@@ -1,6 +1,6 @@
 {
-  "title": "JED aicomp-sdk — Local Stub for Agent Security Competition",
-  "id": "marksusol/jed-aicomp-sdk",
+  "title": "JED aicomp-sdk — Agent Security Attack SDK",
+  "id": "gdataranger/jed-aicomp-sdk",
   "licenses": [{"name": "MIT"}],
   "keywords": [
     "kaggle competition",
