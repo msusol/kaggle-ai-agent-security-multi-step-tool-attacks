@@ -285,4 +285,12 @@ Scores above 50 require payload tuning informed by real model transcripts — re
 - [In AI Sweet Harmony: Sociopragmatic Guardrail Bypasses in gpt-oss-20b](https://arxiv.org/abs/2510.01259) — Durner, 2025
 - [Quant Fever, Reasoning Blackholes, Schrödinger's Compliance](https://arxiv.org/abs/2509.23882) — 2025
 - [Death by a Thousand Prompts: Open Model Vulnerability Analysis](https://arxiv.org/abs/2511.03247) — Cisco, 2025
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
+Copyright (c) 2026 Mark Susol
 - [aas-local-validation.ipynb](https://www.kaggle.com/competitions/ai-agent-security-multi-step-tool-attacks/discussion/708186) — official local validation notebook
