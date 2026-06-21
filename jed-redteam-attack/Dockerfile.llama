@@ -1,0 +1,34 @@
+# ── JED Attack — llama.cpp Server ─────────────────────────────────────────────
+#
+# Serves GGUF competition models (GPT-OSS 20B, Gemma 4 26B) via llama-cpp-python's
+# OpenAI-compatible HTTP server — the same runtime the Kaggle evaluator uses.
+#
+# Architecture: linux/arm64 (DGX Spark GB10 aarch64, Apple Silicon Mac)
+#
+# Build:
+#   make build-llama
+#
+# Run (handled by scripts/llama-serve.sh):
+#   docker run --rm --privileged --ipc=host --gpus all \
+#     -v <hf_cache>:/root/.cache/huggingface \
+#     -e HF_TOKEN=... \
+#     -p 8080:8080 \
+#     jed-llama:latest \
+#     python -m llama_cpp.server \
+#       --model /root/.cache/huggingface/hub/.../gpt-oss-20b-mxfp4.gguf \
+#       --port 8080 --n_gpu_layers -1 --n_ctx 8192
+# ─────────────────────────────────────────────────────────────────────────────
+
+FROM nvcr.io/nvidia/pytorch:26.04-py3
+
+# llama-cpp-python with CUDA backend (compiled from source with GGML_CUDA=on)
+# CMAKE_ARGS triggers CUDA kernel compilation; --no-cache-dir keeps the layer small.
+RUN CMAKE_ARGS="-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=90;100;120" \
+    pip install --no-cache-dir \
+        "llama-cpp-python[server]>=0.3.8" \
+        "huggingface_hub[cli]>=0.24"
+
+# Expose default llama.cpp server port (8080 — different from vLLM's 8000)
+EXPOSE 8080
+
+CMD ["python", "-m", "llama_cpp.server", "--help"]

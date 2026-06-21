@@ -136,6 +136,9 @@ class LLMEnv(_StubEnv):
             if not content:
                 break
 
+            if self._verbose:
+                print(f"  [llm] {content[:300]}")
+
             chat_history.append({"role": "assistant", "content": content})
 
             parsed = self._parse_json(content)
@@ -167,7 +170,11 @@ class LLMEnv(_StubEnv):
                     final_response = f"[Unknown tool: {tool_name}]"
                     break
 
-        self._messages.append({"role": "assistant", "content": final_response})
+        # Sync _messages from the full chat_history so snapshot()/restore() and
+        # subsequent interact() calls can see every tool call and result.
+        # The stub's snapshot/restore already saves _messages — we just need to
+        # populate it with the complete exchange, not just the stripped summary.
+        self._messages = [m for m in chat_history if m["role"] != "system"]
         return final_response
 
     def _llm_call(self, messages: list[dict]) -> str:
@@ -189,14 +196,23 @@ class LLMEnv(_StubEnv):
     def _parse_json(self, text: str) -> dict | None:
         # Strip markdown fences
         text = re.sub(r"```(?:json)?", "", text).strip()
-        # Find first JSON object
-        m = re.search(r'\{[^{}]*\}', text, re.DOTALL)
-        if not m:
+        # Find the first top-level JSON object using brace-depth tracking
+        # so nested args dicts (e.g. "args": {"path": "..."}) are included.
+        start = text.find('{')
+        if start == -1:
             return None
-        try:
-            return json.loads(m.group(0))
-        except Exception:
-            return None
+        depth = 0
+        for i, ch in enumerate(text[start:], start):
+            if ch == '{':
+                depth += 1
+            elif ch == '}':
+                depth -= 1
+                if depth == 0:
+                    try:
+                        return json.loads(text[start:i + 1])
+                    except Exception:
+                        return None
+        return None
 
     def _execute_tool(self, tool: str, args: dict) -> dict | None:
         """Route parsed tool call to the real fixture implementations."""

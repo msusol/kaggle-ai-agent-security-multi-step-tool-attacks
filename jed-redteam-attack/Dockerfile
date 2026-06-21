@@ -4,7 +4,7 @@
 #   --target dev      Local dev on Mac (default) — stub env only
 #   --target llm      Same + openai client for Ollama/vLLM integration
 #
-# Architecture: linux/arm64 (DGX Spark aarch64) AND linux/amd64 (Mac x86)
+# Architecture: linux/arm64 (DGX Spark aarch64, Apple Silicon Mac) OR linux/amd64 (Intel Mac/x86)
 # Python: 3.11 (matches Kaggle's runtime)
 #
 # Build:

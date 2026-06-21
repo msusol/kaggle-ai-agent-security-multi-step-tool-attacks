@@ -40,6 +40,7 @@ ENV/
 pip-wheel-metadata/
 share/python-wheels/
 *.whl
+jed-attack-src.zip
 
 # Testing / coverage
 .pytest_cache/
@@ -69,6 +70,7 @@ test-results/
 
 # Docker
 .docker/
+.paused_containers
 
 # Logs
 *.log

@@ -31,12 +31,26 @@ across algorithm iterations, payload tuning, and model evaluations.
 
 ## leaderboard.md format
 
+The file has two sections — **Development** (stub + DGX) and **Competition** (Kaggle).
+DGX scores use a different model and budget than Kaggle and are not comparable to
+competition scores. Add each row to the correct section.
+
 ```markdown
 # Leaderboard
 
+> DGX vs Kaggle scores are not comparable. ...
+
+## Development (stub + DGX Spark)
+
 | Version | Env | Model | Score (norm) | Score (raw) | Cells | Findings | Budget | Notes |
 |---|---|---|---|---|---|---|---|---|
-| v0.1 | stub | stub | 0.3 | 60.0 | 8 | 299 | 300s | Phase 1 baseline |
+| v0.1 | stub | stub | 0.30 | 60.0 | 8 | 299 | 300s | Phase 1 baseline |
+
+## Competition (Kaggle)
+
+| Version | Env | Model | Score (norm) | Score (raw) | Cells | Findings | Budget | Notes |
+|---|---|---|---|---|---|---|---|---|
+| v0.2 | kaggle | gpt_oss | ... | ... | ... | ... | 9000s | ... |
 ```
 
 ## What not to add
@@ -44,6 +58,7 @@ across algorithm iterations, payload tuning, and model evaluations.
 - Do not add stub harness runs after Phase 1 — stub scores are fixed at 0.3.
 - Do not update historical rows unless correcting a factual error.
 - Do not add rows for `python attack.py` smoke tests (no replay scoring).
+- Do not add DGX rows to the Competition section or vice versa.
 
 ## File location
 

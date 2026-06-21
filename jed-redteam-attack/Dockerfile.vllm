@@ -1,0 +1,39 @@
+# Dockerfile.vllm  —  vLLM serving image for DGX Spark (aarch64 + Blackwell sm_120)
+#
+# Mirrors nemotron-vllm-gb10 base so we share the already-pulled NGC layer.
+#
+# Build (on the DGX — do NOT import an x86_64 image):
+#   docker build --platform linux/arm64 -t jed-vllm:latest -f Dockerfile.vllm .
+#   # or via Makefile:
+#   make build-vllm
+#
+# Run via vllm-serve.sh (handles pause/resume automatically):
+#   bash vllm-serve.sh
+#   IMAGE=jed-vllm:latest bash vllm-serve.sh
+
+FROM --platform=linux/arm64 nvcr.io/nvidia/pytorch:26.04-py3
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    TOKENIZERS_PARALLELISM=false
+
+WORKDIR /workspace
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git wget curl \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN python -m pip install --upgrade pip setuptools wheel packaging
+
+# Blackwell (sm_120) support requires vLLM 0.8+
+RUN TORCH_CUDA_ARCH_LIST="8.0;8.6;8.7;8.9;9.0;12.0;12.1+PTX" \
+    pip install vllm
+
+RUN pip install \
+    "huggingface_hub>=1.5.0,<2.0" \
+    "openai>=1.30"
+
+RUN mkdir -p /workspace/.cache/huggingface
+
+CMD ["python", "-m", "vllm.entrypoints.openai.api_server", "--help"]

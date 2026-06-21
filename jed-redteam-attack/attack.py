@@ -110,10 +110,16 @@ class AttackAlgorithm(AttackAlgorithmBase):
         all_candidates: list[AttackCandidate] = []
         global_seen_sigs: set[str] = set()
 
-        # Detect model label from env if available (for model-specific seeds)
-        model_label = getattr(getattr(env, '_model_label', None), '__str__', lambda: "any")()
-        if model_label not in ("gpt_oss", "gemma"):
-            model_label = "any"
+        # Detect model label from env (for model-specific seeds).
+        # LLMEnv stores the API model name in _model; the stub/Kaggle env stores
+        # a competition label in _model_label.  Fall back to "any" only when
+        # neither attribute is present so seeds_for_model can filter correctly.
+        _raw_label = (
+            getattr(env, '_model_label', None)
+            or getattr(env, '_model', None)
+            or "any"
+        )
+        model_label = str(_raw_label)
 
         min_remaining = max(30, total_budget * 0.05)  # 5% of budget or 30s
 

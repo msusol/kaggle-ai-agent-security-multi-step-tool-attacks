@@ -210,9 +210,15 @@ jed-redteam-attack/
 │   └── 03-kaggle-notebook.md ← End-to-end Kaggle submission workflow
 │
 ├── Dockerfile                ← dev (stub) + llm (Ollama/vLLM) targets
+├── Dockerfile.vllm           ← vLLM server image for DGX Spark (aarch64, port 8000)
+├── Dockerfile.llama          ← llama.cpp server image for competition GGUFs (port 8080)
 ├── docker-compose.yml        ← dev / ollama / spark profiles
 ├── Makefile                  ← One-liner commands for all workflows
-├── vllm-serve.sh             ← Start vLLM on DGX Spark
+├── scripts/
+│   ├── vllm-serve.sh         ← Start vLLM in Docker on DGX Spark (port 8000, tmux window 1)
+│   ├── llama-serve.sh        ← Start llama.cpp server with competition GGUFs (port 8080)
+│   ├── harness-run.sh        ← Run harness in Docker against local server (tmux window 2)
+│   └── services.sh           ← Pause/resume non-JED containers around a run
 ├── kaggle_notebook.ipynb     ← Ready-to-run competition notebook
 └── dataset-metadata.json     ← Kaggle CLI dataset config
 ```
@@ -238,14 +244,38 @@ ollama serve && ollama pull llama3.1:8b
 python local_harness.py --budget 300 --llm
 ```
 
-### With vLLM on DGX Spark
+### With vLLM on DGX Spark (HF safetensors models)
 
 ```bash
-# On the Spark:
-bash vllm-serve.sh
+# tmux window 1 — start vLLM server (pauses other containers automatically)
+bash scripts/vllm-serve.sh
 
-# On your Mac:
-SPARK_IP=x.x.x.x make run-spark
+# tmux window 2 — run harness against local vLLM (port 8000)
+bash scripts/harness-run.sh               # 300s
+BUDGET=900 bash scripts/harness-run.sh   # longer run
+```
+
+### With llama.cpp on DGX Spark (competition-parity GGUF models)
+
+**GGUF** (GGML Universal Format) is the binary format used by llama.cpp to store
+quantized model weights. A GGUF file is self-contained: weights, tokenizer, and
+chat template in one file. The Kaggle evaluator serves GPT-OSS 20B and Gemma 4 26B
+as GGUFs via `llama-server` — loading the same files locally gives true
+competition-parity results.
+
+```bash
+# Build once (~15 min, compiles CUDA kernels)
+make build-llama
+
+# tmux window 1 — serve GPT-OSS 20B GGUF (downloads 12 GB on first run)
+MODEL=gpt-oss bash scripts/llama-serve.sh    # port 8080
+
+# tmux window 2 — run harness against llama.cpp
+PORT=8080 MODEL=gpt_oss bash scripts/harness-run.sh
+
+# Same for Gemma 4 26B (14 GB)
+MODEL=gemma bash scripts/llama-serve.sh
+PORT=8080 MODEL=gemma bash scripts/harness-run.sh
 ```
 
 ### Publish to Kaggle and run competition notebook
