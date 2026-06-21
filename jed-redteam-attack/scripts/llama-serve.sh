@@ -76,6 +76,9 @@ fi
 DOWNLOAD_DIR="${HF_HOME}/gguf"
 GGUF_PATH="${DOWNLOAD_DIR}/${HF_FILE}"
 
+LOG="${REPO_DIR}/logs/llama_${MODEL_ALIAS}_$(date +%Y%m%d_%H%M%S).log"
+mkdir -p "${REPO_DIR}/logs"
+
 echo "────────────────────────────────────────────"
 echo "  llama.cpp server on DGX Spark"
 echo "  model  : $HF_REPO / $HF_FILE"
@@ -83,6 +86,7 @@ echo "  alias  : $MODEL_ALIAS  (pass as MODEL= to harness-run.sh)"
 echo "  host   : 0.0.0.0:$PORT"
 echo "  ctx    : $NCTX"
 echo "  cache  : $DOWNLOAD_DIR"
+echo "  log    : $LOG"
 echo "────────────────────────────────────────────"
 
 # ── Build jed-llama image if missing or REBUILD=1 ─────────────────────────────
@@ -158,4 +162,7 @@ docker run --rm \
         --port "${PORT}" \
         --ctx-size "${NCTX}" \
         --n-gpu-layers -1 \
-        --jinja
+        --jinja \
+    2>&1 | tee "${LOG}"
+
+echo "Log saved to ${LOG}"
