@@ -8,15 +8,15 @@
 
 - [x] Activate shared venv: `source ~/LosusAI/Projects/Kaggle/.venv/bin/activate`
 - [x] Confirm `pytest tests/ -v` — all 14 tests green
-- [ ] Run `python attack.py` — no import errors, >0 candidates returned
-- [ ] Run `python local_harness.py --budget 300` — all 5 phases complete within budget
-- [ ] Verify stub score ≥ 0.3 and 8 unique cells covered
-- [ ] Verify replay phase succeeds (no candidates fail on fresh env)
-- [ ] Review `probe_results` from Algorithm A — confirm all 4 predicates fire
-- [ ] Review Algorithm B beam output — mutation operators producing diverse candidates
-- [ ] Review Algorithm C taint chains — `UNTRUSTED_TO_ACTION` confirmed hits
-- [ ] Review Algorithm D diversity targets — all 14 explicit targets attempted
-- [ ] Review Algorithm E depth sweep — priming depths 3/5/8/12 all run
+- [x] Run `python attack.py` — no import errors, >0 candidates returned
+- [x] Run `python local_harness.py --budget 300` — all 5 phases complete within budget
+- [x] Verify stub score ≥ 0.3 and 8 unique cells covered
+- [x] Verify replay phase succeeds (no candidates fail on fresh env)
+- [x] Review `probe_results` from Algorithm A — confirm all 4 predicates fire
+- [x] Review Algorithm B beam output — mutation operators producing diverse candidates
+- [x] Review Algorithm C taint chains — `UNTRUSTED_TO_ACTION` confirmed hits
+- [x] Review Algorithm D diversity targets — all 14 explicit targets attempted
+- [x] Review Algorithm E depth sweep — priming depths 3/5/8/12 all run
 
 ## Phase 2 — DGX Spark: Real LLM + Local Scoring
 
