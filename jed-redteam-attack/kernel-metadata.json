@@ -1,0 +1,16 @@
+{
+  "id": "gdataranger/jed-attack-agent-security",
+  "title": "JED Attack — Agent Security",
+  "code_file": "kaggle_notebook.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": false,
+  "dataset_sources": [
+    "gdataranger/jed-aicomp-sdk"
+  ],
+  "competition_sources": [
+    "ai-agent-security-multi-step-tool-attacks"
+  ]
+}

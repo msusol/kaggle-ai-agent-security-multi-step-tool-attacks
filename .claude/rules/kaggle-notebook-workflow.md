@@ -63,13 +63,21 @@ cd jed-redteam-attack
 /Users/marksusol/LosusAI/Projects/Kaggle/.venv/bin/python \
   -m build --wheel --outdir .
 
-# 2. Publish updated dataset version
+# 2. Stage only the needed files — kaggle CLI uploads everything in -p dir
+mkdir -p /tmp/jed-dataset
+cp aicomp_sdk-3.1.0.dev0-py3-none-any.whl /tmp/jed-dataset/
+cp attack.py /tmp/jed-dataset/
+cp local_harness.py /tmp/jed-dataset/
+cp dataset-metadata.json /tmp/jed-dataset/
+cp dataset-cover-image.png /tmp/jed-dataset/  # CLI auto-uploads as cover image
+
+# 3. Publish updated dataset version
 /Users/marksusol/LosusAI/Projects/Kaggle/.venv/bin/kaggle \
   datasets version \
-  -p . \
+  -p /tmp/jed-dataset/ \
   -m "describe what changed"
 
-# 3. Push the notebook
+# 4. Push the notebook
 mkdir -p /tmp/jed-kernel
 cp kaggle_notebook.ipynb /tmp/jed-kernel/
 cp kernel-metadata.json /tmp/jed-kernel/kernel-metadata.json
@@ -101,6 +109,62 @@ The `kaggle_notebook.ipynb` serves two purposes:
 
 For the official submission, ensure Cell 2 writes `attack.py` to
 `/kaggle/working/` before the evaluator runs.
+
+## Dataset metadata usability
+
+Kaggle shows a usability score for datasets based on these items. All are set
+in `dataset-metadata.json` and applied via `kaggle datasets version`.
+
+### What each field maps to
+
+| Usability item | JSON field | Notes |
+|---|---|---|
+| Subtitle | `subtitle` | 20–80 characters; required |
+| Description | `description` | Markdown; use headers, tables, code blocks |
+| License | `licenses[0].name` | Must be set to `"CC0-1.0"` via **Kaggle UI first** (Settings → License → CC0: Public Domain); subsequent `datasets version` pushes will preserve it. `"MIT"` and `"other"` are silently ignored by the API. |
+| File information | `data[].description` | Per-file description entries; counts toward usability |
+| Provenance | `userSpecifiedSources` | Plain string; maps to the Provenance metadata tab |
+| Cover image | `dataset-cover-image.png` | Place alongside metadata in staging dir; CLI auto-detects and uploads via separate API path (no progress shown) |
+
+### Confirmed working values
+
+```json
+{
+  "subtitle": "20–80 char one-liner",
+  "description": "Markdown body — tables, code blocks, headers",
+  "userSpecifiedSources": "One paragraph: who made it, where it came from, GitHub link",
+  "licenses": [{"name": "CC0-1.0"}],
+  "keywords": ["nlp", "deep learning", "python", "classification"],
+  "data": [
+    {"name": "file.whl", "description": "Install with pip install file.whl"},
+    {"name": "attack.py", "description": "What it does"}
+  ]
+}
+```
+
+### Tags — valid vs invalid
+
+Multi-word tags without hyphens may not register. Confirmed working:
+`"nlp"`, `"deep learning"`, `"python"`, `"classification"`.
+Not working: `"kaggle competition"`, `"agent security"`, `"text data"`, `"MIT"`.
+
+### Cover image specs
+
+Kaggle requires **minimum 564×284 pixels**. Generate at exactly 564×284 so
+the content fills the header crop precisely. Use JPEG (RGB) — PNG with RGBA
+(transparency) may not apply correctly.
+
+Name the file `dataset-cover-image.jpg` (or `.png`, `.jpeg`, `.webp`) and
+place it alongside `dataset-metadata.json` in the staging dir. The CLI
+auto-detects it by filename and uploads via a separate API path (no progress
+bar shown for the image upload). When both `.png` and `.jpg` are present, the
+`.jpg` is used (last match wins in the CLI's canonical filename list).
+
+### `.kaggleignore` is not supported
+
+The `kaggle datasets version -p <dir>` command uploads all non-directory files
+in `<dir>`. `.kaggleignore` is not processed. Always use a staging directory
+with only the files that should appear in the dataset.
 
 ## Kaggle username
 

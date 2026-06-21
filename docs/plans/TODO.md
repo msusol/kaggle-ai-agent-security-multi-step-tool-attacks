@@ -47,7 +47,13 @@
 
 ## Phase 4 — Kaggle Submission
 
-- [ ] Publish final wheel version to `marksusol/jed-aicomp-sdk` dataset
+- [x] Fix `dataset-metadata.json` (username `gdataranger`, title ≤50 chars)
+- [x] Build wheel: `python -m build --wheel --outdir .`
+- [x] Publish dataset v1 to `gdataranger/jed-aicomp-sdk`
+- [x] Create `kernel-metadata.json` for `gdataranger/jed-attack-agent-security`
+- [x] Fix dataset — publish v3 via staging dir (wheel + attack.py + local_harness.py only)
+- [ ] Push notebook: `kaggle kernels push -p /tmp/jed-kernel`
+- [ ] Run smoke test (Cell 3) — confirm wheel installs correctly on Kaggle
 - [ ] Run full `kaggle_notebook.ipynb` against GPT-OSS 20B (Cell 6)
 - [ ] Run full `kaggle_notebook.ipynb` against Gemma 4 26B (Cell 7)
 - [ ] Record public scores from both models
