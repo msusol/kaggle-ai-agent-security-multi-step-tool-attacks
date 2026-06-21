@@ -145,4 +145,4 @@ docker run --rm \
         --port "${PORT}" \
         --n_gpu_layers -1 \
         --n_ctx "${NCTX}" \
-        --chat_format chatml
+        --chat_format jinja
