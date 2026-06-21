@@ -49,6 +49,9 @@ Correct workflow after every push:
 | `enable_internet` | `false` |
 | `dataset_sources` | `["gdataranger/jed-aicomp-sdk"]` |
 | `competition_sources` | `["ai-agent-security-multi-step-tool-attacks"]` |
+| `model_sources` | `["llkh0a/gpt-oss-20b-gguf/pytorch/default/1", "llkh0a/gemma-4-26b-a4b-it-ud-q4-k-m-gguf/pytorch/default/1"]` |
+
+Model source format: `{owner}/{model-slug}/{framework}/{instance}/{version}` — derived from the mount path `/kaggle/input/models/{owner}/{model-slug}/{framework}/{instance}/{version}/`.
 
 To add or remove any input, edit the JSON and push — do not use the Kaggle UI.
 
