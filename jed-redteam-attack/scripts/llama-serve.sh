@@ -96,12 +96,23 @@ if [[ ! -f "$GGUF_PATH" ]]; then
     echo ""
     echo "Downloading $HF_FILE from $HF_REPO ..."
     mkdir -p "$DOWNLOAD_DIR"
-    # Use native venv huggingface-cli — faster than running inside Docker.
-    "${VENV}/bin/huggingface-cli" download \
-        "$HF_REPO" "$HF_FILE" \
-        --local-dir "$DOWNLOAD_DIR" \
-        --local-dir-use-symlinks False \
-        ${HF_TOKEN:+--token "${HF_TOKEN}"}
+
+    # huggingface_hub >= 1.20.0 renamed the CLI from 'huggingface-cli' to 'hf'.
+    # Prefer 'hf' (system-level) if available; fall back to venv's huggingface-cli.
+    if command -v hf &>/dev/null; then
+        hf download "$HF_REPO" "$HF_FILE" \
+            --local-dir "$DOWNLOAD_DIR" \
+            ${HF_TOKEN:+--token "${HF_TOKEN}"}
+    elif [[ -x "${VENV}/bin/huggingface-cli" ]]; then
+        "${VENV}/bin/huggingface-cli" download \
+            "$HF_REPO" "$HF_FILE" \
+            --local-dir "$DOWNLOAD_DIR" \
+            --local-dir-use-symlinks False \
+            ${HF_TOKEN:+--token "${HF_TOKEN}"}
+    else
+        echo "ERROR: neither 'hf' nor '${VENV}/bin/huggingface-cli' found"
+        exit 1
+    fi
 fi
 
 [[ -f "$GGUF_PATH" ]] || { echo "ERROR: download failed — $GGUF_PATH not found"; exit 1; }
