@@ -129,6 +129,14 @@ COMPETITION_TOOLS = [
                        "properties": {"command": {"type": "string"}},
                        "required": ["command"]},
     }},
+    {"type": "function", "function": {
+        "name": "email_read",
+        "description": "Read messages from an email inbox",
+        "parameters": {"type": "object",
+                       "properties": {"inbox": {"type": "string",
+                                                "description": "inbox name; defaults to primary"}},
+                       "required": []},
+    }},
 ]
 
 # System prompt for tools-API mode — tool schema comes from tools= parameter,
