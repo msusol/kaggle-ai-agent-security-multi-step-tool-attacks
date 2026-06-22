@@ -1,19 +1,26 @@
 #!/usr/bin/env bash
 # harness-run.sh  —  Run local_harness.py in Docker on DGX Spark.
 #
-# Connects to the vLLM server started by vllm-serve.sh (localhost:8000).
+# Connects to either:
+#   - llama-server (llama-serve.sh) on port 8082 (GPT-OSS 20B, Gemma 4 26B)
+#   - vLLM server (vllm-serve.sh) on port 8000 (Llama 3.1 8B)
 # Builds the jed-llm image if not present, logs output to logs/.
 #
 # Usage:
-#   bash harness-run.sh                       # 300s budget, default model
-#   BUDGET=900 bash harness-run.sh            # longer run
-#   MODEL=Llama-3.1-8B-Instruct bash harness-run.sh
+#   # GPT-OSS 20B via llama-server (default):
+#   bash harness-run.sh                       # 300s budget
+#   MODEL=gpt_oss BUDGET=900 bash harness-run.sh
+#
+#   # Gemma 4 26B via llama-server:
+#   MODEL=gemma bash harness-run.sh
+#
+#   # Llama 3.1 8B via vLLM:
+#   PORT=8000 MODEL=Llama-3.1-8B-Instruct bash harness-run.sh
 #
 # Env vars:
 #   BUDGET   Time budget in seconds (default: 300)
-#   MODEL    Served model name — must match vllm-serve.sh's --served-model-name
-#            (default: Llama-3.1-8B-Instruct, i.e. basename of the HF model id)
-#   PORT     vLLM port on localhost (default: 8000)
+#   MODEL    Served model name: gpt_oss | gemma | Llama-3.1-8B-Instruct
+#   PORT     Server port on localhost (default: 8082 for llama-server)
 
 set -euo pipefail
 
@@ -21,8 +28,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"   # jed-redteam-attack/
 
 BUDGET="${BUDGET:-300}"
-MODEL="${MODEL:-Llama-3.1-8B-Instruct}"
-PORT="${PORT:-8000}"
+MODEL="${MODEL:-gpt_oss}"
+PORT="${PORT:-8082}"
 LOG="${REPO_DIR}/logs/harness_$(date +%Y%m%d_%H%M%S).log"
 
 mkdir -p "${REPO_DIR}/logs"

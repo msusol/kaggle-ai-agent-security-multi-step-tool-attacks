@@ -235,12 +235,16 @@ Both competition model GGUFs are publicly available on HuggingFace:
 
 | Model | HF repo | File | Size |
 |---|---|---|---|
-| GPT-OSS 20B | `ggml-org/gpt-oss-20b-GGUF` | `gpt-oss-20b-mxfp4.gguf` | 12.1 GB |
+| GPT-OSS 20B | `unsloth/gpt-oss-20b-GGUF` | `gpt-oss-20b-Q4_K_M.gguf` | ~9 GB |
 | Gemma 4 26B | `google/gemma-4-26B-A4B-it-qat-q4_0-gguf` | `gemma-4-26B_q4_0-it.gguf` | 14.4 GB |
 
-Both fit in the DGX Spark's 128 GB unified memory. MXFP4 (GPT-OSS) and Q4_0
+Both fit in the DGX Spark's 128 GB unified memory. Q4_K_M (GPT-OSS) and Q4_0
 (Gemma 4) are quantization formats embedded in the GGUF — the `llama-server`
 binary handles them natively without any additional configuration.
+
+**Note (2026-06-21):** Q4_K_M from `unsloth` replaced the original MXFP4 quant
+from `ggml-org`. The MXFP4 GGUF produced `????` garbage on GB10 Blackwell GPU.
+Q4_K_M works correctly for text generation. See `docs/investigate/2026-06-21-first-llama-cpp-run.md` for details.
 
 #### First build (compiles CUDA kernels, ~15 min)
 
@@ -251,22 +255,22 @@ make build-llama   # builds jed-llama:latest from Dockerfile.llama
 #### Running (two tmux windows)
 
 ```bash
-# Window 1 — serve GPT-OSS 20B via llama.cpp (port 8080)
+# Window 1 — serve GPT-OSS 20B via llama.cpp (port 8082)
 tmux new -s llama
 MODEL=gpt-oss bash scripts/llama-serve.sh
-# First run: downloads gpt-oss-20b-mxfp4.gguf (12 GB) to /raid/hf_cache/gguf/
+# First run: downloads gpt-oss-20b-Q4_K_M.gguf (~9 GB) to /raid/hf_cache/gguf/
 # Subsequent runs: serves from cache immediately.
 # Ctrl+B D to detach — trap restores paused containers on exit.
 
 # Window 2 — run harness against llama.cpp server
 tmux new -s harness
-PORT=8080 MODEL=gpt_oss bash scripts/harness-run.sh
+PORT=8082 MODEL=gpt_oss bash scripts/harness-run.sh
 ```
 
 ```bash
 # Same for Gemma 4 26B
-MODEL=gemma bash scripts/llama-serve.sh           # window 1 (port 8080)
-PORT=8080 MODEL=gemma bash scripts/harness-run.sh # window 2
+MODEL=gemma bash scripts/llama-serve.sh           # window 1 (port 8082)
+PORT=8082 MODEL=gemma bash scripts/harness-run.sh # window 2
 ```
 
 The `MODEL` alias (`gpt_oss`, `gemma`) matches keys in `_MODEL_HINT_MAP` inside

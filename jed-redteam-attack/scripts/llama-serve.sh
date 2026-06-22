@@ -8,7 +8,7 @@
 # cannot inject tools correctly into these models (produces !!! garbage output).
 #
 # Usage:
-#   MODEL=gpt-oss bash scripts/llama-serve.sh       # GPT-OSS 20B  (12 GB)
+#   MODEL=gpt-oss bash scripts/llama-serve.sh       # GPT-OSS 20B Q4_K_M (~9 GB, unsloth)
 #   MODEL=gemma   bash scripts/llama-serve.sh       # Gemma 4 26B  (14 GB)
 #
 # Then run the harness against it in a second tmux window:
@@ -46,8 +46,8 @@ fi
 # seeds_for_model() returns the correct model-specific seed set.
 case "$MODEL" in
     gpt-oss|gpt_oss)
-        HF_REPO="ggml-org/gpt-oss-20b-GGUF"
-        HF_FILE="gpt-oss-20b-mxfp4.gguf"
+        HF_REPO="unsloth/gpt-oss-20b-GGUF"
+        HF_FILE="gpt-oss-20b-Q4_K_M.gguf"
         MODEL_ALIAS="gpt_oss"          # → _MODEL_HINT_MAP["gpt_oss"]
         ;;
     gemma|gemma4)
@@ -141,8 +141,11 @@ trap 'make -C "$REPO_DIR" resume' EXIT
 
 # ── Serve ──────────────────────────────────────────────────────────────────────
 # /models is mounted read-only inside the container.
-# --chat_format chatml is the broadest-compatible default; both GPT-OSS and
-# Gemma 4 GGUFs have embedded chat templates that llama-cpp-python will use.
+# --jinja enables Jinja2 template evaluation including render_tool_namespace.
+#   This is required for tool schema injection into GPT-OSS/Gemma GGUFs.
+# --reasoning off disables thinking/reasoning tokens. GPT-OSS has internal
+#   reasoning tokens that can cause PEG parser failures if enabled (model
+#   generates <|call|> inside thinking block → garbled ???? output).
 # --n_gpu_layers -1 offloads all layers to GPU (fits in 128 GB unified memory).
 docker run --rm \
     --privileged \
@@ -162,6 +165,7 @@ docker run --rm \
         --port "${PORT}" \
         --ctx-size "${NCTX}" \
         --n-gpu-layers -1 \
+        --reasoning off \
         --jinja \
     2>&1 | tee "${LOG}"
 
