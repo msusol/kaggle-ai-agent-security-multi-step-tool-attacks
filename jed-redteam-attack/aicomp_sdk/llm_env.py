@@ -368,51 +368,26 @@ class LLMEnv(_StubEnv):
 
     # ── GPT-OSS raw completion path ───────────────────────────────────────────
 
-    def _discover_call_tokens(self) -> dict[str, float]:
-        """
-        Discover token IDs for <|call|>, <|calls|>, <|flush|> via /tokenize.
-        Returns a logit_bias dict {str(token_id): -100.0} to suppress them.
-        Called once per LLMEnv instance and cached in self._gpt_oss_bias.
-        """
-        import urllib.request
-        bias: dict[str, float] = {}
-        native = self._base_url.rstrip("/").removesuffix("/v1")
-        for tok in ("<|call|>", "<|calls|>", "<|flush|>"):
-            try:
-                data = json.dumps({"content": tok, "parse_special": True}).encode()
-                req = urllib.request.Request(
-                    f"{native}/tokenize", data=data,
-                    headers={"Content-Type": "application/json"}, method="POST",
-                )
-                with urllib.request.urlopen(req, timeout=5) as r:
-                    ids = json.loads(r.read())["tokens"]
-                if len(ids) == 1:
-                    bias[str(ids[0])] = -100.0
-                    print(f"[gpt-oss] logit_bias: {tok!r} → token {ids[0]}")
-            except Exception:
-                pass
-        return bias
-
     def _llm_call_gpt_oss(self, messages: list[dict]) -> tuple[str, list]:
         """
-        Use /v1/chat/completions + --jinja (required for correct GPT-OSS
-        tokenisation via Jinja2 template) with logit_bias to suppress <|call|>.
+        Use /v1/chat/completions + --jinja + --skip-chat-parsing.
 
-        All native /completion approaches (/tokenize+ids, string prompt)
-        produce ??? degeneration because the server's fallback built-in
-        template generates different token IDs than the GGUF's Jinja2 template.
-        Only /v1/chat/completions + --jinja produces the right context.
+        --jinja is required: the server's fallback built-in template produces
+        wrong token IDs for GPT-OSS → ??? degeneration.  Only --jinja applies
+        the GGUF's own Jinja2 template and gives the model the right context.
 
-        The PEG parser fires when the model generates <|call|>.  Suppressing
-        <|call|> (and its variants <|calls|>, <|flush|>) via logit_bias=-100
-        forces the model to output the tool call content:
-            "to=functions.X<|channel|>commentary json<|message|>{args}"
-        and then emit EOS instead of <|call|>.  No PEG parser → no 500.
-        We parse the raw content with _gpt_oss_parse.
+        --skip-chat-parsing disables PEG tool-call interception, so the model's
+        raw output (including the <|call|> token) is returned in content instead
+        of triggering a 500 error.
+
+        The response content will be one of:
+          tool call:      "to=functions.X<|channel|>commentary json<|message|>{args}<|call|>"
+          final response: "<|channel|>final<|message|>text<|end|>"
+
+        stop=["<|call|>", "<|return|>"] halts before <|call|> when the server
+        decodes it to its string form; if not (hidden token), _gpt_oss_parse
+        strips it from the args as a fallback.
         """
-        if not hasattr(self, "_gpt_oss_bias"):
-            self._gpt_oss_bias = self._discover_call_tokens()
-
         for attempt in range(self._max_retries + 1):
             try:
                 resp = self._client.chat.completions.create(
@@ -422,15 +397,14 @@ class LLMEnv(_StubEnv):
                     tool_choice="auto",
                     temperature=0.0,
                     max_tokens=512,
-                    stop=["<|end|>", "<|return|>"],
-                    logit_bias=self._gpt_oss_bias or None,
+                    stop=["<|call|>", "<|return|>"],
                 )
                 choice = resp.choices[0]
                 if choice.message.tool_calls:
-                    # logit_bias partially worked but PEG still ran — trust it
+                    # PEG parser ran (skip-chat-parsing not active?) — trust it
                     return choice.message.content or "", choice.message.tool_calls
                 raw = choice.message.content or ""
-                print(f"[gpt-oss bias] finish={choice.finish_reason!r} raw={raw[:120]!r}")
+                print(f"[gpt-oss skip] finish={choice.finish_reason!r} raw={raw[:120]!r}")
                 return self._gpt_oss_parse(raw)
 
             except Exception as e:
@@ -544,7 +518,9 @@ class LLMEnv(_StubEnv):
         m = _GPT_OSS_TC_RE.search(raw)
         if m:
             fn_name  = m.group(1)
-            args_str = m.group(2).strip() or "{}"
+            args_str = m.group(2).strip()
+            # fallback: if stop didn't fire before <|call|>, strip it
+            args_str = args_str.removesuffix("<|call|>").strip() or "{}"
             if self._verbose:
                 print(f"  [gpt-oss raw] tool call: functions.{fn_name}({args_str[:80]})")
             tc = SimpleNamespace(
