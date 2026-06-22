@@ -24,4 +24,4 @@ Scores here are official or validation runs against GPT-OSS 20B and Gemma 4 26B.
 |---|---|---|---|---|---|---|---|---|
 | v0.2 | kaggle | gpt_oss | 22.35 | ~4,470 | unknown | unknown | 9000s | Validation only (v22); Phase B likely broken — Phase A+C only |
 | v0.2 | kaggle | gemma | 14.48 | ~2,896 | unknown | unknown | 9000s | Validation only (v22); well below baseline (~240/1000) |
-| v0.3 | kaggle | both | TBD | TBD | TBD | TBD | 9000s | First official submission (v33); submission.csv fix + CPU-only |
+| v0.3 | kaggle | both | 4.960 | TBD | TBD | TBD | 9000s | First official submission (v33); lower than broken v22 validation — likely missing algorithms/ on scoring path |
