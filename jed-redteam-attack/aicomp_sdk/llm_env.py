@@ -25,15 +25,14 @@ Three call modes:
     structured tool_calls in the response.  LLMEnv reads tool_calls
     and maps "functions.fs_read" → "fs.read" for _execute_tool().
 
-  GPT-OSS RAW MODE (GPT-OSS 20B via llama-server --jinja):
-    llama.cpp's PEG grammar is incompatible with GPT-OSS's tool call
-    format (<|start|>assistant to=functions.X<|channel|>commentary
-    json<|message|>{...}<|call|>).  We bypass /v1/chat/completions
-    entirely and use the native /completion endpoint with a manually
-    formatted prompt (mirrors the GGUF's Jinja2 template).
-    GPT-OSS BOS token is <|startoftext|> (ID 199998) — we include it
-    via /tokenize with add_special=True + parse_special=True.
-    <|call|> is a stop token; we parse tool calls ourselves.
+  GPT-OSS RAW MODE (GPT-OSS 20B via llama-server --jinja --skip-chat-parsing):
+    llama.cpp's PEG grammar rejects GPT-OSS's tool call format.
+    --skip-chat-parsing disables PEG output validation while the Jinja2
+    template is still applied for input (confirmed from llama.cpp docs).
+    tool_choice="none" keeps the TypeScript tool schema in the developer
+    block (template ignores tool_choice) but does not set a grammar.
+    The model generates raw tool-call content in message.content;
+    _gpt_oss_parse() extracts function name + args.
 
 Usage:
   from aicomp_sdk.llm_env import LLMEnv
@@ -165,8 +164,9 @@ _GPT_OSS_MODELS = {"gpt_oss", "gpt-oss"}
 
 # Regex to detect a tool call in raw GPT-OSS completion output.
 # Matches: "to=functions.fn_name<|channel|>commentary json<|message|>{...}"
+# No ^ anchor: a leading reasoning block must not prevent the match.
 _GPT_OSS_TC_RE = re.compile(
-    r"^to=functions\.(\w+)<\|channel\|>commentary json<\|message\|>(.*)",
+    r"to=functions\.(\w+)<\|channel\|>commentary json<\|message\|>(.*)",
     re.DOTALL,
 )
 
@@ -372,68 +372,37 @@ class LLMEnv(_StubEnv):
 
     def _llm_call_gpt_oss(self, messages: list[dict]) -> tuple[str, list]:
         """
-        Use native llama.cpp /completion with a manually-tokenized prompt.
+        /v1/chat/completions + tool_choice="none" (server must run with --skip-chat-parsing).
 
-        /v1/chat/completions + --jinja → PEG intercepts tool call → 500.
-        /v1/chat/completions + --skip-chat-parsing → also bypasses Jinja2
-          template on input → model lacks tool schema context → ???.
+        Why not /completion: raw /completion always produces ??? (degenerate ?-token loops)
+        regardless of prompt format — the model needs the harmony-channel context that
+        /v1/chat/completions + --jinja provides.
 
-        Root cause of ??? (Bug 8): GPT-OSS BOS token is <|startoftext|>
-        (ID 199998).  The /v1/chat/completions path adds it automatically.
-        Our earlier /tokenize calls used add_special=False → missing BOS
-        → model received a truncated context → ??? degeneration.
+        Why not tool_choice="auto": grammar is set → PEG fires on every response → 500.
 
-        Fix: build prompt manually with _gpt_oss_prompt(), tokenize with
-        parse_special=True + add_special=True (prepends BOS 199998), then
-        POST token IDs to /completion.  No PEG grammar.  No chat template
-        applied server-side.  stop=["<|call|>", "<|return|>"] halts
-        generation cleanly.
+        Why --skip-chat-parsing on the server: with --jinja but without --skip-chat-parsing,
+        PEG validates ALL output (even plain chat with no tools) → 500. The --skip-chat-parsing
+        flag keeps Jinja2 template application for input while returning all model output
+        (tool calls, reasoning) in message.content unmodified.
+
+        Why tool_choice="none" + tools=: the Jinja2 template checks only `tools` (not
+        tool_choice) to decide whether to inject the TypeScript namespace. tools= causes
+        render_tool_namespace to run; tool_choice="none" prevents grammar from being set.
         """
-        import urllib.request
-
-        native_url = self._base_url.rstrip("/").removesuffix("/v1")
-        prompt_str = self._gpt_oss_prompt(messages)
-
-        # Tokenize with BOS (add_special=True) and special-token parsing
-        try:
-            tok_data = json.dumps({
-                "content": prompt_str,
-                "parse_special": True,
-                "add_special": True,
-            }).encode()
-            tok_req = urllib.request.Request(
-                f"{native_url}/tokenize",
-                data=tok_data,
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            with urllib.request.urlopen(tok_req, timeout=10) as r:
-                tokens = json.loads(r.read())["tokens"]
-        except Exception as e:
-            print(f"[LLMEnv] GPT-OSS tokenize error: {e}")
-            return "", []
-
-        # Complete from token IDs — no PEG grammar, no chat template overhead
         for attempt in range(self._max_retries + 1):
             try:
-                cmp_data = json.dumps({
-                    "prompt": tokens,
-                    "n_predict": 512,
-                    "temperature": 0.0,
-                    "stop": ["<|call|>", "<|return|>"],
-                    "cache_prompt": False,
-                }).encode()
-                cmp_req = urllib.request.Request(
-                    f"{native_url}/completion",
-                    data=cmp_data,
-                    headers={"Content-Type": "application/json"},
-                    method="POST",
+                resp = self._client.chat.completions.create(
+                    model=self._model,
+                    messages=messages,
+                    tools=COMPETITION_TOOLS,
+                    tool_choice="none",
+                    temperature=0.0,
+                    max_tokens=512,
+                    stop=["<|call|>", "<|return|>"],
                 )
-                with urllib.request.urlopen(cmp_req, timeout=60) as r:
-                    result = json.loads(r.read())
-                raw = result.get("content", "")
-                stop_type = result.get("stop_type", result.get("stop", "?"))
-                print(f"[gpt-oss native] stop={stop_type!r} raw={raw[:120]!r}")
+                choice = resp.choices[0]
+                raw = choice.message.content or ""
+                print(f"[gpt-oss skip-none] finish={choice.finish_reason!r} raw={raw[:120]!r}")
                 return self._gpt_oss_parse(raw)
             except Exception as e:
                 if attempt < self._max_retries:
@@ -441,92 +410,6 @@ class LLMEnv(_StubEnv):
                 print(f"[LLMEnv] GPT-OSS error: {e}")
                 return "", []
         return "", []
-
-    def _gpt_oss_prompt(self, messages: list[dict]) -> str:
-        """
-        Build a raw prompt string for GPT-OSS using its <|start|> token format,
-        mirroring what llama-server's --jinja Jinja2 template would render.
-        """
-        from datetime import date
-        today = date.today().strftime("%Y-%m-%d")
-
-        parts = [
-            "<|start|>system<|message|>"
-            "You are ChatGPT, a large language model trained by OpenAI.\n"
-            f"Knowledge cutoff: 2024-06\nCurrent date: {today}\n\n"
-            "Reasoning: off\n\n"
-            "# Valid channels: analysis, commentary, final. "
-            "Channel must be included for every message.\n"
-            "Calls to these tools must go to the commentary channel: 'functions'."
-            "<|end|>"
-        ]
-
-        # System message becomes the developer "# Instructions" block + tool TypeScript.
-        dev_instructions = next(
-            (m["content"] for m in messages if m["role"] == "system"), ""
-        )
-        parts.append(
-            "<|start|>developer<|message|>"
-            f"# Instructions\n\n{dev_instructions}\n\n"
-            f"# Tools\n\n{self._gpt_oss_tools_ts()}"
-            "<|end|>"
-        )
-
-        last_fn: str | None = None
-        for msg in messages:
-            role = msg["role"]
-            if role == "system":
-                continue
-            elif role == "user":
-                parts.append(f"<|start|>user<|message|>{msg['content']}<|end|>")
-            elif role == "assistant":
-                tcs = msg.get("tool_calls")
-                if tcs:
-                    tc = tcs[0]
-                    fn = tc["function"]["name"].removeprefix("functions.")
-                    args = tc["function"]["arguments"]
-                    if isinstance(args, dict):
-                        args = json.dumps(args)
-                    parts.append(
-                        f"<|start|>assistant to=functions.{fn}"
-                        f"<|channel|>commentary json<|message|>{args}<|call|>"
-                    )
-                    last_fn = fn
-                else:
-                    content = msg.get("content") or ""
-                    parts.append(
-                        f"<|start|>assistant<|channel|>final<|message|>{content}<|end|>"
-                    )
-                    last_fn = None
-            elif role == "tool":
-                fn = last_fn or "unknown"
-                parts.append(
-                    f"<|start|>functions.{fn} to=assistant"
-                    f"<|channel|>commentary<|message|>{msg['content']}<|end|>"
-                )
-
-        parts.append("<|start|>assistant")
-        return "".join(parts)
-
-    def _gpt_oss_tools_ts(self) -> str:
-        """
-        Render COMPETITION_TOOLS as a TypeScript namespace, matching what
-        render_tool_namespace("functions", tools) produces in the Jinja2 template.
-        """
-        lines = ["## functions\n\nnamespace functions {\n\n"]
-        for t in COMPETITION_TOOLS:
-            fn = t["function"]
-            lines.append(f"// {fn['description']}\ntype {fn['name']} = (_: {{\n")
-            props = fn.get("parameters", {}).get("properties", {})
-            req   = fn.get("parameters", {}).get("required", [])
-            for pname, pspec in props.items():
-                if pspec.get("description"):
-                    lines.append(f"// {pspec['description']}\n")
-                opt = "" if pname in req else "?"
-                lines.append(f"{pname}{opt}: string,\n")
-            lines.append("}) => any;\n\n")
-        lines.append("} // namespace functions")
-        return "".join(lines)
 
     def _gpt_oss_parse(self, raw: str) -> tuple[str, list]:
         """

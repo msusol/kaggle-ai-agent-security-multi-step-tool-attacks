@@ -49,13 +49,14 @@ case "$MODEL" in
         HF_REPO="unsloth/gpt-oss-20b-GGUF"
         HF_FILE="gpt-oss-20b-Q4_K_M.gguf"
         MODEL_ALIAS="gpt_oss"          # → _MODEL_HINT_MAP["gpt_oss"]
-        # --jinja: kept for consistency (has no effect on our /completion
-        #   calls, but harmless; remove if it causes unexpected behaviour).
-        # --reasoning off: suppress thinking tokens.
-        # Note: --skip-chat-parsing was tried but ALSO bypasses Jinja2 on
-        #   input → ??? degeneration. Removed. We bypass /v1/chat/completions
-        #   entirely and use /completion with add_special=True tokenisation.
-        SERVER_FLAGS="--jinja --reasoning off"
+        # --jinja: applies the GGUF's Jinja2 template on input (renders tool
+        #   TypeScript namespace via render_tool_namespace in developer block).
+        # --skip-chat-parsing: disables PEG output validation while keeping
+        #   Jinja2 input formatting — model output goes straight to content.
+        #   (b425fee tested skip+tool_choice="auto" which still sets grammar;
+        #    current LLMEnv uses tool_choice="none" → no grammar → no PEG.)
+        # --reasoning off: suppress DeepSeek-style reasoning tokens.
+        SERVER_FLAGS="--jinja --skip-chat-parsing --reasoning off"
         ;;
     gemma|gemma4)
         HF_REPO="google/gemma-4-26B-A4B-it-qat-q4_0-gguf"
@@ -152,13 +153,12 @@ trap 'make -C "$REPO_DIR" resume' EXIT
 # ── Serve ──────────────────────────────────────────────────────────────────────
 # /models is mounted read-only inside the container.
 # SERVER_FLAGS is set per-model above:
-#   gpt-oss: "--jinja --reasoning off"
-#     LLMEnv bypasses /v1/chat/completions entirely for GPT-OSS and uses
-#     the native /completion endpoint with manually-tokenized prompts
-#     (parse_special=True, add_special=True to include BOS 199998).
-#     This avoids the PEG grammar error without needing --skip-chat-parsing.
-#     --jinja is kept but has no effect on /completion calls.
-#     --reasoning off: suppress thinking tokens.
+#   gpt-oss: "--jinja --skip-chat-parsing --reasoning off"
+#     --jinja: input formatted via GGUF Jinja2 template (tool TypeScript
+#     namespace injected by render_tool_namespace in developer block).
+#     --skip-chat-parsing: output returned raw in content (no PEG).
+#     LLMEnv uses /v1/chat/completions + tool_choice="none" (no grammar)
+#     and parses the raw content with _gpt_oss_parse().
 #   gemma: "--jinja"
 #     --jinja: render_tool_namespace injects TypeScript tool defs;
 #     Gemma's PEG output is valid, uses /v1/chat/completions normally.
