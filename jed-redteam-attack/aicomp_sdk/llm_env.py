@@ -370,46 +370,72 @@ class LLMEnv(_StubEnv):
 
     def _llm_call_gpt_oss(self, messages: list[dict]) -> tuple[str, list]:
         """
-        Use /v1/chat/completions with tools= so --jinja injects the TypeScript
-        tool namespace via render_tool_namespace (correct tokenization, correct
-        context) but add stop=["<|call|>"] to halt generation BEFORE the PEG
-        parser trigger token is processed.
+        Use llama-server's native /tokenize + /completion endpoints to bypass
+        the --jinja PEG parser entirely.
 
-        llama-server checks stop token IDs in the sampling loop before the
-        Jinja tool-call interception runs, so the stop fires first and the
-        server returns the raw partial content:
-          tool call:      "to=functions.X<|channel|>commentary json<|message|>{args}"
-          final response: "<|channel|>final<|message|>text here"
+        Requires llama-serve.sh to start GPT-OSS WITHOUT --jinja so <|call|>
+        tokens are never intercepted server-side.  We format the full prompt
+        string ourselves via _gpt_oss_prompt(), then:
 
-        We parse that content ourselves with _gpt_oss_parse, bypassing the PEG
-        parser entirely.  (The tokenize+/completion path produced ??? because
-        /tokenize defaults to parse_special=false, tokenising <|start|> as nine
-        individual characters and sending garbage to the model.)
+          POST /tokenize  {"content": prompt, "add_special": false, "parse_special": true}
+            → token IDs where <|start|>, <|message|>, <|call|> etc. are each
+              a single special token ID.  parse_special=true is the critical
+              fix: without it the default false tokenises "<|start|>" as nine
+              individual ASCII characters and the model sees garbage → ???
+
+          POST /completion {"prompt": [token_ids], "n_predict": 512,
+                            "stop": ["<|call|>", ...], "stream": false}
+            → generation halts at <|call|> token (checked by token ID in the
+              sampling loop); returned content contains the raw partial output
+              "to=functions.X<|channel|>commentary json<|message|>{args}"
+              which _gpt_oss_parse converts to a fake tool_call object.
         """
+        import urllib.request
+
+        prompt = self._gpt_oss_prompt(messages)
+        native = self._base_url.rstrip("/").removesuffix("/v1")
+
         for attempt in range(self._max_retries + 1):
             try:
-                resp = self._client.chat.completions.create(
-                    model=self._model,
-                    messages=messages,
-                    tools=COMPETITION_TOOLS,
-                    tool_choice="auto",
-                    temperature=0.0,
-                    max_tokens=512,
-                    stop=["<|call|>", "<|end|>", "<|return|>"],
+                tok_data = json.dumps({
+                    "content": prompt,
+                    "add_special": False,
+                    "parse_special": True,   # <|start|> etc. → single token IDs
+                }).encode()
+                req = urllib.request.Request(
+                    f"{native}/tokenize",
+                    data=tok_data,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
                 )
-                choice = resp.choices[0]
-                # If PEG parser somehow ran before stop fired, trust its result
-                if choice.message.tool_calls:
-                    return choice.message.content or "", choice.message.tool_calls
-                raw = choice.message.content or ""
-                print(f"[gpt-oss stop] finish={choice.finish_reason!r} raw={raw[:120]!r}")
+                with urllib.request.urlopen(req, timeout=30) as r:
+                    token_ids: list[int] = json.loads(r.read())["tokens"]
+
+                print(f"[gpt-oss] tokenised {len(prompt)} chars → {len(token_ids)} tokens")
+
+                comp_data = json.dumps({
+                    "prompt": token_ids,
+                    "n_predict": 512,
+                    "temperature": 0.0,
+                    "stop": ["<|call|>", "<|end|>", "<|return|>"],
+                    "stream": False,
+                }).encode()
+                req = urllib.request.Request(
+                    f"{native}/completion",
+                    data=comp_data,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=120) as r:
+                    raw = json.loads(r.read()).get("content", "")
+
+                print(f"[gpt-oss] raw={raw[:120]!r}")
                 return self._gpt_oss_parse(raw)
 
             except Exception as e:
-                if attempt < self._max_retries:
-                    continue
-                print(f"[LLMEnv] GPT-OSS error: {e}")
-                return "", []
+                if attempt == self._max_retries:
+                    print(f"[LLMEnv] GPT-OSS error: {e}")
+                    return "", []
         return "", []
 
     def _gpt_oss_prompt(self, messages: list[dict]) -> str:

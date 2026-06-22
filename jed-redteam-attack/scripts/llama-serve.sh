@@ -49,11 +49,18 @@ case "$MODEL" in
         HF_REPO="unsloth/gpt-oss-20b-GGUF"
         HF_FILE="gpt-oss-20b-Q4_K_M.gguf"
         MODEL_ALIAS="gpt_oss"          # → _MODEL_HINT_MAP["gpt_oss"]
+        # NO --jinja: GPT-OSS uses native /tokenize+/completion to bypass the
+        # PEG parser.  --jinja intercepts <|call|> tokens server-side before any
+        # stop sequence can fire, making it impossible to capture raw tool calls.
+        SERVER_FLAGS=""
         ;;
     gemma|gemma4)
         HF_REPO="google/gemma-4-26B-A4B-it-qat-q4_0-gguf"
         HF_FILE="gemma-4-26B_q4_0-it.gguf"
         MODEL_ALIAS="gemma"            # → _MODEL_HINT_MAP["gemma"]
+        # --jinja needed for Gemma: render_tool_namespace injects TypeScript tool
+        # definitions into the developer block; Gemma's PEG output is valid.
+        SERVER_FLAGS="--jinja"
         ;;
     *)
         echo "ERROR: Unknown MODEL '$MODEL'.  Use: gpt-oss | gemma"
@@ -141,11 +148,11 @@ trap 'make -C "$REPO_DIR" resume' EXIT
 
 # ── Serve ──────────────────────────────────────────────────────────────────────
 # /models is mounted read-only inside the container.
-# --jinja enables Jinja2 template evaluation including render_tool_namespace.
-#   This is required for tool schema injection into GPT-OSS/Gemma GGUFs.
-# --reasoning off disables thinking/reasoning tokens. GPT-OSS has internal
-#   reasoning tokens that can cause PEG parser failures if enabled (model
-#   generates <|call|> inside thinking block → garbled ???? output).
+# SERVER_FLAGS is set per-model above:
+#   gpt-oss: "" (no --jinja — PEG parser must be disabled so native
+#            /tokenize+/completion can capture raw <|call|> output)
+#   gemma:   "--jinja" (render_tool_namespace injects TypeScript tool defs;
+#            Gemma's tool-call output is valid PEG and works via tools-api)
 # --n_gpu_layers -1 offloads all layers to GPU (fits in 128 GB unified memory).
 docker run --rm \
     --privileged \
@@ -165,8 +172,7 @@ docker run --rm \
         --port "${PORT}" \
         --ctx-size "${NCTX}" \
         --n-gpu-layers -1 \
-        --reasoning off \
-        --jinja \
+        ${SERVER_FLAGS} \
     2>&1 | tee "${LOG}"
 
 echo "Log saved to ${LOG}"
