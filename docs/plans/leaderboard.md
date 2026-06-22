@@ -20,6 +20,7 @@ not competition ranking.
 | v0.9 | dgx-local | gemma | 0.25 | 50.0 | 5 | 7 | 300s | +13 Gemma seeds (library.py), Phase C expanded to 192 combos; article #1 still returned for all web queries — +1 finding but no new cells |
 | v0.10 | dgx-local | gemma | 0.27 | 54.0 | 5 | 4 | 300s | Phase C BREAKTHROUGH: article #5 exclusively matched, UNTRUSTED_TO_ACTION+CONFUSED_DEPUTY confirmed; Phase D killed by hardcoded -150s margin bug (only 16.2s) |
 | v0.11 | dgx-local | gemma | 0.27 | 54.0 | 5 | 4 | 300s | Fixed -150 margin; Phase C found 3 candidates but re-run overhead (120s) consumed Phase D budget again → time_limit=-0.5s, 0 probes |
+| v0.12 | dgx-local | gemma | 0.27 | 54.0 | 5 | 5 | 300s | Trace cache + early break: Phase B finally explored (2 beam children); Phase B used 77s → Phase D got 1.8s, still 0 probes |
 
 ## Competition (Kaggle)
 
