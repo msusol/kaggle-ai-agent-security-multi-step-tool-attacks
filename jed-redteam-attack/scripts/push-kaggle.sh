@@ -25,7 +25,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"   # jed-redteam-attack/
 VENV="$HOME/LosusAI/Projects/Kaggle/.venv"
 PYTHON="$VENV/bin/python"
-KAGGLE="$VENV/bin/kaggle"
+# Prefer venv kaggle; fall back to miniconda/system kaggle
+if [[ -f "$VENV/bin/kaggle" ]]; then
+    KAGGLE="$VENV/bin/kaggle"
+elif command -v kaggle &>/dev/null; then
+    KAGGLE="$(command -v kaggle)"
+else
+    KAGGLE="$VENV/bin/kaggle"  # will fail sanity check below with helpful message
+fi
 
 DATASET_STAGING="/tmp/jed-dataset"
 KERNEL_STAGING="/tmp/jed-kernel"
