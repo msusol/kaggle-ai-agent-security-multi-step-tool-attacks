@@ -174,6 +174,42 @@ MODEL=gpt-oss REBUILD=1 bash scripts/llama-serve.sh
 
 ---
 
+## MXFP4 vs Q4_K_M — GPU Architecture Compatibility
+
+**Why we switched from the original GGUF to the unsloth Q4_K_M version:**
+
+The original GGUF from `ggml-org` uses the `mxfp4` format:
+```
+ggml-org/gpt-oss-20b-GGUF / gpt-oss-20b-mxfp4.gguf
+```
+
+This produced `????` garbage on the DGX Spark GB10 GPU.
+
+**What MXFP4 is:** MXFP4 is NVIDIA's MicroScaling FP4 format — a hardware-level
+quantization that packs weights into 4-bit floating point using a shared
+microscaling exponent block. It requires dedicated hardware support in the CUDA
+tensor core path.
+
+**The irony:** MXFP4 is a *newer* format designed specifically for *newer* GPUs
+(Blackwell B100/B200/GB10, Hopper H100). Our DGX Spark has a GB10 — which IS
+a Blackwell chip and theoretically supports MXFP4. But our llama.cpp CUDA kernel
+(compiled for SM 90/100/120) had a runtime path failure for MXFP4 on GB10,
+producing garbage output instead of erroring out.
+
+**Why Kaggle can't use MXFP4 either:** Kaggle's free GPU tier uses **T4 GPUs**
+(Turing architecture, 2018). T4 is a pure NVIDIA chip (not Google TPU — TPUs
+are Google's hardware; T4 is NVIDIA's inference GPU). T4 pre-dates MXFP4 by
+several generations and has no hardware support for it at all. Kaggle's
+evaluator therefore likely uses a compatible format (Q4_K_M or Q4_0) under the
+hood, even if the model source is labelled `mxfp4`.
+
+**The unsloth Q4_K_M GGUF** (`unsloth/gpt-oss-20b-GGUF / gpt-oss-20b-Q4_K_M.gguf`,
+~9 GB) uses the standard GGML Q4_K_M quantization format which llama.cpp has
+handled on all GPU architectures since 2023. It works correctly on GB10 for
+text generation and is our DGX testing substitute for the Kaggle-served model.
+
+---
+
 ## GPT-OSS 20B Model Architecture (from GGUF metadata)
 
 ```
