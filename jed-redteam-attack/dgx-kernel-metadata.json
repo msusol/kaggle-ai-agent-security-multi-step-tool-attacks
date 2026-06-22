@@ -1,0 +1,13 @@
+{
+  "id": "gdataranger/jed-dgx-spark-gb10",
+  "title": "JED Attack — DGX Spark GB10",
+  "code_file": "dgx_notebook.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": false,
+  "enable_gpu": false,
+  "enable_internet": false,
+  "dataset_sources": [],
+  "competition_sources": [],
+  "model_sources": []
+}

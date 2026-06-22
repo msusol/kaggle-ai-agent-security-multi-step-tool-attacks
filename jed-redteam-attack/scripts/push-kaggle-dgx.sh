@@ -5,7 +5,8 @@
 # The project .venv does not have `build` or `kaggle`; this script avoids it.
 #
 # Usage (from jed-redteam-attack/):
-#   bash scripts/push-kaggle-dgx.sh "version message"
+#   bash scripts/push-kaggle-dgx.sh "version message"        # full push (dataset + competition notebook)
+#   bash scripts/push-kaggle-dgx.sh --demo                   # push DGX demo notebook only
 #
 # After push: Kaggle auto-starts a committed run on T4.
 # To use a different GPU: stop auto-run → Accelerator → Save & Run All.
@@ -20,9 +21,41 @@ KAGGLE="$HOME/miniconda3/bin/kaggle"
 DATASET_STAGING="/tmp/jed-dataset"
 KERNEL_STAGING="/tmp/jed-kernel"
 
-MSG="${1:-}"
+# ── Argument parsing ──────────────────────────────────────────────────────────
+PUSH_DEMO=false
+MSG=""
+
+for arg in "$@"; do
+    case "$arg" in
+        --demo) PUSH_DEMO=true ;;
+        *)      MSG="$arg" ;;
+    esac
+done
+
+# --demo: push only dgx_notebook.ipynb (no wheel build, no dataset push)
+if [[ "$PUSH_DEMO" == "true" ]]; then
+    echo ""
+    echo "══════════════════════════════════════════════════════"
+    echo "  JED Attack — DGX Demo Notebook Push (DGX)"
+    echo "  kernel : gdataranger/jed-dgx-spark-gb10"
+    echo "══════════════════════════════════════════════════════"
+    echo ""
+    [[ -f "$KAGGLE" ]] || { echo "ERROR: kaggle not found at $KAGGLE"; exit 1; }
+    rm -rf "$KERNEL_STAGING" && mkdir -p "$KERNEL_STAGING"
+    cp "$REPO_DIR/dgx_notebook.ipynb"       "$KERNEL_STAGING/"
+    cp "$REPO_DIR/dgx-kernel-metadata.json" "$KERNEL_STAGING/kernel-metadata.json"
+    echo "  staged: $(ls "$KERNEL_STAGING" | tr '\n' ' ')"
+    "$KAGGLE" kernels push -p "$KERNEL_STAGING"
+    echo ""
+    echo "  DGX demo notebook pushed: gdataranger/jed-dgx-spark-gb10"
+    echo "══════════════════════════════════════════════════════"
+    echo ""
+    exit 0
+fi
+
 if [[ -z "$MSG" ]]; then
     echo "Usage: $0 \"version message\""
+    echo "       $0 --demo"
     exit 1
 fi
 
