@@ -26,12 +26,11 @@ Three call modes:
     and maps "functions.fs_read" → "fs.read" for _execute_tool().
 
   GPT-OSS TOOL MODE (GPT-OSS 20B via llama-server --jinja --reasoning off):
-    tool_choice="auto" uses a LAZY grammar (fires only after trigger patterns
-    like "<|start|>assistant to" appear).  GPT-OSS generates ??? tokens first,
-    which never trigger the grammar, so ??? loops until PEG validation fails.
-    tool_choice="required" uses a NON-LAZY grammar that fires on the first token,
-    preventing ??? degeneration.  The specialized GPT-OSS PEG handler validates
-    the grammar-forced output and returns structured tool_calls normally.
+    Non-functional on DGX with unsloth/gpt-oss-20b-Q4_K_M GGUF (Bug 8, WNT).
+    The unsloth model is NOT the competition GGUF (llkh0a/gpt-oss-20b-gguf) and
+    cannot generate <|message|> in the harmony channel format.  All tool_choice
+    options fail: "auto"→500, "required"→gibberish/no parse, "none"→500.
+    Returns ("", []) on every call.  Use Kaggle for GPT-OSS scores.
 
 Usage:
   from aicomp_sdk.llm_env import LLMEnv
@@ -373,19 +372,29 @@ class LLMEnv(_StubEnv):
         """
         /v1/chat/completions + tool_choice="required" (server runs --jinja --reasoning off).
 
-        Root cause of Bug 8: tool_choice="auto" uses a LAZY grammar — it only activates
-        when the accumulated token string matches a trigger pattern (e.g., "<|start|>assistant
-        to").  GPT-OSS 20B generates ??? tokens as its first output, which never match any
-        trigger, so the grammar never fires and the model loops on ??? until EOS. The
-        resulting ??? output fails PEG validation → 500.
+        Bug 8 — DGX GPT-OSS non-functional (WNT with unsloth GGUF):
 
-        tool_choice="required" uses a NON-LAZY grammar that fires on the VERY FIRST token,
-        forcing the model into the valid tool-call token space from the start (??? cannot be
-        generated).  The grammar-constrained output satisfies the specialized GPT-OSS PEG
-        parser → server returns structured tool_calls normally.
+        The unsloth/gpt-oss-20b-Q4_K_M GGUF is NOT the competition model
+        (llkh0a/gpt-oss-20b-gguf). It was never trained on the harmony channel
+        format and cannot generate <|message|> (token 200008) after a channel
+        declaration. This makes all tool-call completion paths fail on DGX.
 
-        With tool_choice="required" the model is forced to call a tool every turn.  For the
-        attack scenario this is correct behavior — we always want tool invocation.
+        Approaches tried and results:
+          tool_choice="auto" (lazy grammar): model generates ??? first tokens,
+            grammar trigger never fires, ??? loops → PEG fails → HTTP 500.
+          tool_choice="required" (non-lazy grammar): grammar fires correctly on
+            token 1, forces " to=functions.X<|channel|>analysis". After "analysis",
+            model has near-zero probability for <|message|> → grammar falls back →
+            gibberish follows. No tool_calls in response → returns ("", []).
+          tool_choice="none": PEG still fires (not disabled by this flag) → HTTP 500.
+          No tools=: PEG still fires for all /v1/chat/completions + --jinja → HTTP 500.
+          grammar="" override via request body: ignored by llama-server (template wins).
+
+        Keeping tool_choice="required" as best graceful degradation: no HTTP 500,
+        no exception retries, fast failure. max_tokens=32 caps gibberish generation
+        to avoid 100s-per-call waste from grammar fallback looping.
+
+        Use Kaggle for actual GPT-OSS scores (competition GGUF works correctly there).
         """
         for attempt in range(self._max_retries + 1):
             try:
@@ -395,7 +404,7 @@ class LLMEnv(_StubEnv):
                     tools=COMPETITION_TOOLS,
                     tool_choice="required",
                     temperature=0.0,
-                    max_tokens=512,
+                    max_tokens=32,
                 )
                 choice = resp.choices[0]
                 tool_calls = choice.message.tool_calls or []

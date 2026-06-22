@@ -49,12 +49,13 @@ case "$MODEL" in
         HF_REPO="unsloth/gpt-oss-20b-GGUF"
         HF_FILE="gpt-oss-20b-Q4_K_M.gguf"
         MODEL_ALIAS="gpt_oss"          # → _MODEL_HINT_MAP["gpt_oss"]
-        # --jinja: required — applies GGUF Jinja2 template and the specialized
-        #   GPT-OSS handler (common_chat_params_init_gpt_oss) which sets up the
-        #   PEG grammar for <|start|>assistant to=functions.X<|channel|>... format.
-        # --reasoning off: suppress DeepSeek-style reasoning.
-        # LLMEnv uses tool_choice="required" → non-lazy grammar fires on first
-        #   token preventing ??? degeneration; PEG validates the forced output.
+        # Bug 8 (WNT on DGX): unsloth/gpt-oss-20b-Q4_K_M is NOT the competition
+        # GGUF (llkh0a/gpt-oss-20b-gguf). All tool_choice variants fail:
+        #   "auto"  → ??? degeneration (lazy grammar never fires) → 500
+        #   "required" → correct prefix, near-zero P(<|message|>) → gibberish
+        #   "none"  → PEG still validates → 500 on every call
+        # GPT-OSS DGX is non-functional. Use Kaggle for GPT-OSS scores.
+        # --jinja + --reasoning off kept for consistency with any future fix.
         SERVER_FLAGS="--jinja --reasoning off"
         ;;
     gemma|gemma4)
@@ -153,11 +154,8 @@ trap 'make -C "$REPO_DIR" resume' EXIT
 # /models is mounted read-only inside the container.
 # SERVER_FLAGS is set per-model above:
 #   gpt-oss: "--jinja --reasoning off"
-#     --jinja: applies GGUF Jinja2 template; activates specialized GPT-OSS
-#     PEG handler which supports the <|channel|>commentary format.
-#     LLMEnv uses tool_choice="required" → non-lazy grammar fires on the
-#     FIRST token, preventing ??? degeneration (lazy "auto" grammar never
-#     fires because ??? tokens don't match the trigger patterns).
+#     Non-functional on DGX (Bug 8 WNT) — unsloth GGUF ≠ competition GGUF.
+#     Use Kaggle for GPT-OSS scores.
 #   gemma: "--jinja"
 #     --jinja: render_tool_namespace injects TypeScript tool defs;
 #     Gemma's PEG output is valid, uses /v1/chat/completions normally.

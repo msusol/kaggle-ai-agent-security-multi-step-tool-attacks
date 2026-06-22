@@ -1,6 +1,6 @@
 # TODO — JED Red-Team Attack
 
-<!-- Last updated: 2026-06-21 -->
+<!-- Last updated: 2026-06-22 -->
 
 ---
 
@@ -20,16 +20,20 @@
 
 ## Phase 2 — DGX Spark: Real LLM + Local Scoring
 
-- [ ] Install `requirements-llm.txt` on DGX Spark
-- [ ] Run `vllm-serve.sh` — confirm model loads and endpoint responds at port 8000
-- [ ] Run `local_harness.py --budget 300 --llm` against local vLLM
-- [ ] Record baseline real-LLM score and unique cell count
-- [ ] Inspect `probe_results` from A — which seed payloads fire on real LLM?
+> **GPT-OSS DGX: Bug 8 — WNT.** `unsloth/gpt-oss-20b-Q4_K_M` ≠ competition GGUF
+> (`llkh0a/gpt-oss-20b-gguf`). The unsloth model can't generate `<|message|>` in
+> harmony channel format under any `tool_choice` config. DGX GPT-OSS returns `("", [])`
+> on every call. Use Gemma on DGX for development; Kaggle for GPT-OSS scores.
+
+- [x] Switch GPT-OSS backend to llama-server (--jinja) instead of vLLM
+- [x] Confirm Gemma 4 26B works via llama-server (`v0.7`: score 0.28, all 4 predicates)
+- [ ] Run `local_harness.py --budget 300 --llm --model gemma` on DGX Gemma
+- [ ] Record baseline Gemma real-LLM score and unique cell count
+- [ ] Inspect `probe_results` from A — which seed payloads fire on Gemma?
 - [ ] Identify zero-hit seeds (no tool calls) — candidates for rephrasing
-- [ ] Identify partial-hit seeds (read fires, exfil does not) — tune repair logic in A
-- [ ] Add model-specific seeds to `payloads/library.py` based on transcript output
-- [ ] Tune beam parameters in B for real-LLM latency (`beam_width`, `branch_factor`)
-- [ ] Validate Algorithm C taint chains fire on real LLM (highest-value predicate)
+- [ ] Add Gemma-specific seeds to `payloads/library.py` based on transcript output
+- [ ] Tune beam parameters in B for Gemma latency (`beam_width`, `branch_factor`)
+- [ ] Validate Algorithm C taint chains fire on Gemma (highest-value predicate)
 - [ ] Run at `--budget 900` once tuned — measure score improvement
 
 ## Phase 3 — MacBook: Remote Attack via DGX Spark vLLM
