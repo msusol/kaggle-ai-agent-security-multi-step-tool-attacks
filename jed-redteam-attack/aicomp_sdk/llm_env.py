@@ -25,14 +25,13 @@ Three call modes:
     structured tool_calls in the response.  LLMEnv reads tool_calls
     and maps "functions.fs_read" → "fs.read" for _execute_tool().
 
-  GPT-OSS RAW MODE (GPT-OSS 20B via llama-server --jinja --skip-chat-parsing):
-    llama.cpp's PEG grammar rejects GPT-OSS's tool call format.
-    --skip-chat-parsing disables PEG output validation while the Jinja2
-    template is still applied for input (confirmed from llama.cpp docs).
-    tool_choice="none" keeps the TypeScript tool schema in the developer
-    block (template ignores tool_choice) but does not set a grammar.
-    The model generates raw tool-call content in message.content;
-    _gpt_oss_parse() extracts function name + args.
+  GPT-OSS TOOL MODE (GPT-OSS 20B via llama-server --jinja --reasoning off):
+    tool_choice="auto" uses a LAZY grammar (fires only after trigger patterns
+    like "<|start|>assistant to" appear).  GPT-OSS generates ??? tokens first,
+    which never trigger the grammar, so ??? loops until PEG validation fails.
+    tool_choice="required" uses a NON-LAZY grammar that fires on the first token,
+    preventing ??? degeneration.  The specialized GPT-OSS PEG handler validates
+    the grammar-forced output and returns structured tool_calls normally.
 
 Usage:
   from aicomp_sdk.llm_env import LLMEnv
@@ -368,26 +367,25 @@ class LLMEnv(_StubEnv):
                     return "", []
         return "", []
 
-    # ── GPT-OSS raw completion path ───────────────────────────────────────────
+    # ── GPT-OSS tool-call path ────────────────────────────────────────────────
 
     def _llm_call_gpt_oss(self, messages: list[dict]) -> tuple[str, list]:
         """
-        /v1/chat/completions + tool_choice="none" (server must run with --skip-chat-parsing).
+        /v1/chat/completions + tool_choice="required" (server runs --jinja --reasoning off).
 
-        Why not /completion: raw /completion always produces ??? (degenerate ?-token loops)
-        regardless of prompt format — the model needs the harmony-channel context that
-        /v1/chat/completions + --jinja provides.
+        Root cause of Bug 8: tool_choice="auto" uses a LAZY grammar — it only activates
+        when the accumulated token string matches a trigger pattern (e.g., "<|start|>assistant
+        to").  GPT-OSS 20B generates ??? tokens as its first output, which never match any
+        trigger, so the grammar never fires and the model loops on ??? until EOS. The
+        resulting ??? output fails PEG validation → 500.
 
-        Why not tool_choice="auto": grammar is set → PEG fires on every response → 500.
+        tool_choice="required" uses a NON-LAZY grammar that fires on the VERY FIRST token,
+        forcing the model into the valid tool-call token space from the start (??? cannot be
+        generated).  The grammar-constrained output satisfies the specialized GPT-OSS PEG
+        parser → server returns structured tool_calls normally.
 
-        Why --skip-chat-parsing on the server: with --jinja but without --skip-chat-parsing,
-        PEG validates ALL output (even plain chat with no tools) → 500. The --skip-chat-parsing
-        flag keeps Jinja2 template application for input while returning all model output
-        (tool calls, reasoning) in message.content unmodified.
-
-        Why tool_choice="none" + tools=: the Jinja2 template checks only `tools` (not
-        tool_choice) to decide whether to inject the TypeScript namespace. tools= causes
-        render_tool_namespace to run; tool_choice="none" prevents grammar from being set.
+        With tool_choice="required" the model is forced to call a tool every turn.  For the
+        attack scenario this is correct behavior — we always want tool invocation.
         """
         for attempt in range(self._max_retries + 1):
             try:
@@ -395,15 +393,19 @@ class LLMEnv(_StubEnv):
                     model=self._model,
                     messages=messages,
                     tools=COMPETITION_TOOLS,
-                    tool_choice="none",
+                    tool_choice="required",
                     temperature=0.0,
                     max_tokens=512,
-                    stop=["<|call|>", "<|return|>"],
                 )
                 choice = resp.choices[0]
-                raw = choice.message.content or ""
-                print(f"[gpt-oss skip-none] finish={choice.finish_reason!r} raw={raw[:120]!r}")
-                return self._gpt_oss_parse(raw)
+                tool_calls = choice.message.tool_calls or []
+                content    = choice.message.content or ""
+                if tool_calls:
+                    fn = tool_calls[0].function.name
+                    print(f"[gpt-oss required] tool={fn!r} finish={choice.finish_reason!r}")
+                else:
+                    print(f"[gpt-oss required] no tool_calls finish={choice.finish_reason!r} content={content[:80]!r}")
+                return content, tool_calls
             except Exception as e:
                 if attempt < self._max_retries:
                     continue
