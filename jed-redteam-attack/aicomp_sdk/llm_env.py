@@ -29,9 +29,11 @@ Three call modes:
     llama.cpp's PEG grammar is incompatible with GPT-OSS's tool call
     format (<|start|>assistant to=functions.X<|channel|>commentary
     json<|message|>{...}<|call|>).  We bypass /v1/chat/completions
-    entirely and use /v1/completions with a manually formatted prompt
-    that mirrors the model's Jinja2 template.  <|call|> is a stop
-    token; we parse tool calls from the raw completion text ourselves.
+    entirely and use the native /completion endpoint with a manually
+    formatted prompt (mirrors the GGUF's Jinja2 template).
+    GPT-OSS BOS token is <|startoftext|> (ID 199998) — we include it
+    via /tokenize with add_special=True + parse_special=True.
+    <|call|> is a stop token; we parse tool calls ourselves.
 
 Usage:
   from aicomp_sdk.llm_env import LLMEnv
@@ -370,43 +372,69 @@ class LLMEnv(_StubEnv):
 
     def _llm_call_gpt_oss(self, messages: list[dict]) -> tuple[str, list]:
         """
-        Use /v1/chat/completions + --jinja + --skip-chat-parsing.
+        Use native llama.cpp /completion with a manually-tokenized prompt.
 
-        --jinja is required: the server's fallback built-in template produces
-        wrong token IDs for GPT-OSS → ??? degeneration.  Only --jinja applies
-        the GGUF's own Jinja2 template and gives the model the right context.
+        /v1/chat/completions + --jinja → PEG intercepts tool call → 500.
+        /v1/chat/completions + --skip-chat-parsing → also bypasses Jinja2
+          template on input → model lacks tool schema context → ???.
 
-        --skip-chat-parsing disables PEG tool-call interception, so the model's
-        raw output (including the <|call|> token) is returned in content instead
-        of triggering a 500 error.
+        Root cause of ??? (Bug 8): GPT-OSS BOS token is <|startoftext|>
+        (ID 199998).  The /v1/chat/completions path adds it automatically.
+        Our earlier /tokenize calls used add_special=False → missing BOS
+        → model received a truncated context → ??? degeneration.
 
-        The response content will be one of:
-          tool call:      "to=functions.X<|channel|>commentary json<|message|>{args}<|call|>"
-          final response: "<|channel|>final<|message|>text<|end|>"
-
-        stop=["<|call|>", "<|return|>"] halts before <|call|> when the server
-        decodes it to its string form; if not (hidden token), _gpt_oss_parse
-        strips it from the args as a fallback.
+        Fix: build prompt manually with _gpt_oss_prompt(), tokenize with
+        parse_special=True + add_special=True (prepends BOS 199998), then
+        POST token IDs to /completion.  No PEG grammar.  No chat template
+        applied server-side.  stop=["<|call|>", "<|return|>"] halts
+        generation cleanly.
         """
+        import urllib.request
+
+        native_url = self._base_url.rstrip("/").removesuffix("/v1")
+        prompt_str = self._gpt_oss_prompt(messages)
+
+        # Tokenize with BOS (add_special=True) and special-token parsing
+        try:
+            tok_data = json.dumps({
+                "content": prompt_str,
+                "parse_special": True,
+                "add_special": True,
+            }).encode()
+            tok_req = urllib.request.Request(
+                f"{native_url}/tokenize",
+                data=tok_data,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(tok_req, timeout=10) as r:
+                tokens = json.loads(r.read())["tokens"]
+        except Exception as e:
+            print(f"[LLMEnv] GPT-OSS tokenize error: {e}")
+            return "", []
+
+        # Complete from token IDs — no PEG grammar, no chat template overhead
         for attempt in range(self._max_retries + 1):
             try:
-                resp = self._client.chat.completions.create(
-                    model=self._model,
-                    messages=messages,
-                    tools=COMPETITION_TOOLS,
-                    tool_choice="auto",
-                    temperature=0.0,
-                    max_tokens=512,
-                    stop=["<|call|>", "<|return|>"],
+                cmp_data = json.dumps({
+                    "prompt": tokens,
+                    "n_predict": 512,
+                    "temperature": 0.0,
+                    "stop": ["<|call|>", "<|return|>"],
+                    "cache_prompt": False,
+                }).encode()
+                cmp_req = urllib.request.Request(
+                    f"{native_url}/completion",
+                    data=cmp_data,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
                 )
-                choice = resp.choices[0]
-                if choice.message.tool_calls:
-                    # PEG parser ran (skip-chat-parsing not active?) — trust it
-                    return choice.message.content or "", choice.message.tool_calls
-                raw = choice.message.content or ""
-                print(f"[gpt-oss skip] finish={choice.finish_reason!r} raw={raw[:120]!r}")
+                with urllib.request.urlopen(cmp_req, timeout=60) as r:
+                    result = json.loads(r.read())
+                raw = result.get("content", "")
+                stop_type = result.get("stop_type", result.get("stop", "?"))
+                print(f"[gpt-oss native] stop={stop_type!r} raw={raw[:120]!r}")
                 return self._gpt_oss_parse(raw)
-
             except Exception as e:
                 if attempt < self._max_retries:
                     continue

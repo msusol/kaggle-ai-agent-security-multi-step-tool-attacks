@@ -49,13 +49,13 @@ case "$MODEL" in
         HF_REPO="unsloth/gpt-oss-20b-GGUF"
         HF_FILE="gpt-oss-20b-Q4_K_M.gguf"
         MODEL_ALIAS="gpt_oss"          # → _MODEL_HINT_MAP["gpt_oss"]
-        # --jinja: required for correct GPT-OSS tokenisation via GGUF Jinja2
-        #   template (model gets right context; without it → ??? degeneration).
-        # --skip-chat-parsing: disables PEG tool-call interception so the
-        #   model's raw output (including <|call|>) is returned in content.
-        #   We parse it ourselves in _gpt_oss_parse.
+        # --jinja: kept for consistency (has no effect on our /completion
+        #   calls, but harmless; remove if it causes unexpected behaviour).
         # --reasoning off: suppress thinking tokens.
-        SERVER_FLAGS="--jinja --skip-chat-parsing --reasoning off"
+        # Note: --skip-chat-parsing was tried but ALSO bypasses Jinja2 on
+        #   input → ??? degeneration. Removed. We bypass /v1/chat/completions
+        #   entirely and use /completion with add_special=True tokenisation.
+        SERVER_FLAGS="--jinja --reasoning off"
         ;;
     gemma|gemma4)
         HF_REPO="google/gemma-4-26B-A4B-it-qat-q4_0-gguf"
@@ -152,15 +152,16 @@ trap 'make -C "$REPO_DIR" resume' EXIT
 # ── Serve ──────────────────────────────────────────────────────────────────────
 # /models is mounted read-only inside the container.
 # SERVER_FLAGS is set per-model above:
-#   gpt-oss: "--jinja --skip-chat-parsing --reasoning off"
-#     --jinja: GGUF Jinja2 template → correct GPT-OSS token IDs (without
-#       this the fallback built-in template gives wrong context → ???).
-#     --skip-chat-parsing: disables PEG tool-call interception; model output
-#       (including <|call|>) goes into content — we parse it client-side.
+#   gpt-oss: "--jinja --reasoning off"
+#     LLMEnv bypasses /v1/chat/completions entirely for GPT-OSS and uses
+#     the native /completion endpoint with manually-tokenized prompts
+#     (parse_special=True, add_special=True to include BOS 199998).
+#     This avoids the PEG grammar error without needing --skip-chat-parsing.
+#     --jinja is kept but has no effect on /completion calls.
 #     --reasoning off: suppress thinking tokens.
 #   gemma: "--jinja"
 #     --jinja: render_tool_namespace injects TypeScript tool defs;
-#     Gemma's PEG output is valid, no skip-chat-parsing needed.
+#     Gemma's PEG output is valid, uses /v1/chat/completions normally.
 # --n_gpu_layers -1 offloads all layers to GPU (fits in 128 GB unified memory).
 docker run --rm \
     --privileged \
