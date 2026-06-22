@@ -370,63 +370,46 @@ class LLMEnv(_StubEnv):
 
     def _llm_call_gpt_oss(self, messages: list[dict]) -> tuple[str, list]:
         """
-        Bypass /v1/chat/completions for GPT-OSS to avoid the PEG parser.
+        Use /v1/chat/completions with tools= so --jinja injects the TypeScript
+        tool namespace via render_tool_namespace (correct tokenization, correct
+        context) but add stop=["<|call|>"] to halt generation BEFORE the PEG
+        parser trigger token is processed.
 
-        /v1/completions tokenizes the raw string with parse_special=false, so
-        <|start|>, <|message|>, <|call|> etc. become individual characters and
-        the model sees garbage → ??? degeneration.
+        llama-server checks stop token IDs in the sampling loop before the
+        Jinja tool-call interception runs, so the stop fires first and the
+        server returns the raw partial content:
+          tool call:      "to=functions.X<|channel|>commentary json<|message|>{args}"
+          final response: "<|channel|>final<|message|>text here"
 
-        Fix: use llama-server's native endpoints instead:
-          POST /tokenize  {"content": prompt, "add_special": false}
-            → token IDs with special tokens correctly recognised (parse_special=true)
-          POST /completion {"prompt": [token_ids], "n_predict": 512, ...}
-            → inference over the correct token sequence; no PEG parser
+        We parse that content ourselves with _gpt_oss_parse, bypassing the PEG
+        parser entirely.  (The tokenize+/completion path produced ??? because
+        /tokenize defaults to parse_special=false, tokenising <|start|> as nine
+        individual characters and sending garbage to the model.)
         """
-        import urllib.request
-
-        prompt = self._gpt_oss_prompt(messages)
-        # Base URL without the /v1 suffix → native llama-server API
-        native = self._base_url.rstrip("/").removesuffix("/v1")
-
         for attempt in range(self._max_retries + 1):
             try:
-                # Step 1: tokenize with special-token recognition
-                tok_data = json.dumps({
-                    "content": prompt,
-                    "add_special": False,   # no extra BOS; prompt is self-contained
-                }).encode()
-                req = urllib.request.Request(
-                    f"{native}/tokenize",
-                    data=tok_data,
-                    headers={"Content-Type": "application/json"},
-                    method="POST",
+                resp = self._client.chat.completions.create(
+                    model=self._model,
+                    messages=messages,
+                    tools=COMPETITION_TOOLS,
+                    tool_choice="auto",
+                    temperature=0.0,
+                    max_tokens=512,
+                    stop=["<|call|>", "<|end|>", "<|return|>"],
                 )
-                with urllib.request.urlopen(req, timeout=30) as r:
-                    token_ids: list[int] = json.loads(r.read())["tokens"]
-
-                # Step 2: complete from token IDs (no re-tokenization)
-                comp_data = json.dumps({
-                    "prompt": token_ids,
-                    "n_predict": 512,
-                    "temperature": 0.0,
-                    "stop": ["<|call|>", "<|end|>", "<|return|>"],
-                    "stream": False,
-                }).encode()
-                req = urllib.request.Request(
-                    f"{native}/completion",
-                    data=comp_data,
-                    headers={"Content-Type": "application/json"},
-                    method="POST",
-                )
-                with urllib.request.urlopen(req, timeout=120) as r:
-                    raw = json.loads(r.read()).get("content", "")
-
+                choice = resp.choices[0]
+                # If PEG parser somehow ran before stop fired, trust its result
+                if choice.message.tool_calls:
+                    return choice.message.content or "", choice.message.tool_calls
+                raw = choice.message.content or ""
+                print(f"[gpt-oss stop] finish={choice.finish_reason!r} raw={raw[:120]!r}")
                 return self._gpt_oss_parse(raw)
 
             except Exception as e:
-                if attempt == self._max_retries:
-                    print(f"[LLMEnv] GPT-OSS error: {e}")
-                    return "", []
+                if attempt < self._max_retries:
+                    continue
+                print(f"[LLMEnv] GPT-OSS error: {e}")
+                return "", []
         return "", []
 
     def _gpt_oss_prompt(self, messages: list[dict]) -> str:
