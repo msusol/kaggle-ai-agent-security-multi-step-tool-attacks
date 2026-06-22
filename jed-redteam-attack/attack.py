@@ -155,7 +155,7 @@ class AttackAlgorithm(AttackAlgorithmBase):
 
         c_candidates = algo_c.run(
             env, config,
-            time_limit=min(budget_c, remaining() - 200),
+            time_limit=min(budget_c, remaining() - 2 * safety_margin),
         )
         all_candidates.extend(c_candidates)
         for c in c_candidates:
@@ -203,7 +203,7 @@ class AttackAlgorithm(AttackAlgorithmBase):
             env, config,
             seed_entries=seed_entries,
             global_seen=global_seen_sigs,
-            time_limit=min(budget_b, remaining() - 200),
+            time_limit=min(budget_b, remaining() - 2 * safety_margin),
         )
         all_candidates.extend(b_candidates)
         for c in b_candidates:
@@ -221,7 +221,7 @@ class AttackAlgorithm(AttackAlgorithmBase):
         d_candidates = algo_d.run(
             env, config,
             global_seen=global_seen_sigs,
-            time_limit=min(budget_for("D"), remaining() - 150),
+            time_limit=min(budget_for("D"), remaining() - 2 * safety_margin),
         )
         all_candidates.extend(d_candidates)
 
@@ -236,7 +236,7 @@ class AttackAlgorithm(AttackAlgorithmBase):
 
         e_candidates = algo_e.run(
             env, config,
-            time_limit=min(budget_for("E"), remaining() - 100),
+            time_limit=min(budget_for("E"), remaining() - safety_margin),
         )
         all_candidates.extend(e_candidates)
 
