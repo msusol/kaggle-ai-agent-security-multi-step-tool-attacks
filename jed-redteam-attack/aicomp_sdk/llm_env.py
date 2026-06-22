@@ -370,25 +370,22 @@ class LLMEnv(_StubEnv):
 
     def _llm_call_gpt_oss(self, messages: list[dict]) -> tuple[str, list]:
         """
-        Use llama-server's native /tokenize + /completion endpoints to bypass
-        the --jinja PEG parser entirely.
+        Use llama-server's native /completion endpoint (NOT /v1/chat/completions)
+        to bypass the --jinja PEG parser entirely.
 
         Requires llama-serve.sh to start GPT-OSS WITHOUT --jinja so <|call|>
-        tokens are never intercepted server-side.  We format the full prompt
-        string ourselves via _gpt_oss_prompt(), then:
+        tokens are never intercepted server-side.
 
-          POST /tokenize  {"content": prompt, "add_special": false, "parse_special": true}
-            → token IDs where <|start|>, <|message|>, <|call|> etc. are each
-              a single special token ID.  parse_special=true is the critical
-              fix: without it the default false tokenises "<|start|>" as nine
-              individual ASCII characters and the model sees garbage → ???
+        We pass the formatted prompt as a TEXT STRING (not token IDs).  The
+        native /completion endpoint tokenises strings internally with
+        parse_special=true AND add_special=true (BOS prepended), which is what
+        the model expects.  Sending a pre-tokenised array without BOS (via the
+        /tokenize → [ids] → /completion two-step) produces ??? degeneration
+        because the model has no BOS token to anchor the context.
 
-          POST /completion {"prompt": [token_ids], "n_predict": 512,
-                            "stop": ["<|call|>", ...], "stream": false}
-            → generation halts at <|call|> token (checked by token ID in the
-              sampling loop); returned content contains the raw partial output
-              "to=functions.X<|channel|>commentary json<|message|>{args}"
-              which _gpt_oss_parse converts to a fake tool_call object.
+        Generation halts at <|call|> (tool call) or <|return|> (true EOS).
+        <|end|> is intentionally excluded: it closes reasoning blocks, so
+        including it would stop us before the tool call follows the reasoning.
         """
         import urllib.request
 
@@ -397,29 +394,10 @@ class LLMEnv(_StubEnv):
 
         for attempt in range(self._max_retries + 1):
             try:
-                tok_data = json.dumps({
-                    "content": prompt,
-                    "add_special": False,
-                    "parse_special": True,   # <|start|> etc. → single token IDs
-                }).encode()
-                req = urllib.request.Request(
-                    f"{native}/tokenize",
-                    data=tok_data,
-                    headers={"Content-Type": "application/json"},
-                    method="POST",
-                )
-                with urllib.request.urlopen(req, timeout=30) as r:
-                    token_ids: list[int] = json.loads(r.read())["tokens"]
-
-                print(f"[gpt-oss] tokenised {len(prompt)} chars → {len(token_ids)} tokens")
-
                 comp_data = json.dumps({
-                    "prompt": token_ids,
+                    "prompt": prompt,   # string → server tokenises with parse_special=true + BOS
                     "n_predict": 1024,
                     "temperature": 0.0,
-                    # <|end|> is NOT here: it terminates reasoning blocks, firing
-                    # too early if the model ignores Reasoning: off.  <|call|>
-                    # stops tool calls; <|return|> is the true EOS.
                     "stop": ["<|call|>", "<|return|>"],
                     "stream": False,
                 }).encode()
