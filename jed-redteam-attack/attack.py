@@ -158,11 +158,16 @@ class AttackAlgorithm(AttackAlgorithmBase):
             time_limit=min(budget_c, remaining() - 2 * safety_margin),
         )
         all_candidates.extend(c_candidates)
+        # Cache traces so Phase B seeding can reuse them without re-running Gemma
+        _c_trace_cache: dict[str, dict] = {}
         for c in c_candidates:
-            env.reset()
-            for step in c.user_messages:
-                env.interact(step, max_tool_hops=config.max_tool_hops)
-            global_seen_sigs |= unique_signatures(env.export_trace_dict())
+            key = str(c.user_messages)
+            if key not in _c_trace_cache:
+                env.reset()
+                for step in c.user_messages:
+                    env.interact(step, max_tool_hops=config.max_tool_hops)
+                _c_trace_cache[key] = env.export_trace_dict()
+            global_seen_sigs |= unique_signatures(_c_trace_cache[key])
 
         log_score("After C")
 
@@ -181,12 +186,11 @@ class AttackAlgorithm(AttackAlgorithmBase):
         )
         # Seed beam from Algorithm A's confirmed hits
         seed_entries = BeamSearchStrategy.from_probe_results(probe_results)
-        # Also add Algorithm C's taint chains as beam seeds
+        # Also add Algorithm C's taint chains as beam seeds — reuse cached traces
         for c in c_candidates:
-            env.reset()
-            for step in c.user_messages:
-                env.interact(step, max_tool_hops=config.max_tool_hops)
-            trace = env.export_trace_dict()
+            trace = _c_trace_cache.get(str(c.user_messages))
+            if trace is None:
+                continue
             preds_hit = triggered_predicates(trace)
             if preds_hit:
                 sigs = unique_signatures(trace)

@@ -207,6 +207,7 @@ class TaintChainStrategy:
                     sigs = unique_signatures(trace)
                     log(f"  HIT {triggered} | sigs={len(sigs)} | "
                         f"follow={followup[:50]!r}")
+                    break  # one candidate per taint source; avoid re-running same source
 
         # ── Phase 3: Three-step chains (taint → observe → act) ───────────────
         THREE_STEP_CHAINS = [
