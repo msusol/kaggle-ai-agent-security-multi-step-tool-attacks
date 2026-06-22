@@ -88,8 +88,8 @@ echo ""
 if [[ "$PUSH_DATASET" == "true" ]]; then
     echo "[1/4] Building aicomp_sdk wheel..."
     cd "$REPO_DIR"
-    "$PYTHON" -m build --wheel --outdir . --no-isolation 2>&1 | grep -E "wheel|error|warning|Successfully"
-    WHEEL=$(ls "$SCRIPT_DIR"/aicomp_sdk-*.whl 2>/dev/null | sort -V | tail -1)
+    "$PYTHON" -m build --wheel --outdir . --no-isolation 2>&1 | grep -E "wheel|error|warning|Successfully" || true
+    WHEEL=$(ls "$REPO_DIR"/aicomp_sdk-*.whl 2>/dev/null | sort -V | tail -1)
     [[ -f "$WHEEL" ]] || { echo "ERROR: wheel not found after build"; exit 1; }
     echo "  wheel: $(basename "$WHEEL")"
     echo ""
