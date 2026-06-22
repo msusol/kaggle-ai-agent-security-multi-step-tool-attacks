@@ -415,9 +415,12 @@ class LLMEnv(_StubEnv):
 
                 comp_data = json.dumps({
                     "prompt": token_ids,
-                    "n_predict": 512,
+                    "n_predict": 1024,
                     "temperature": 0.0,
-                    "stop": ["<|call|>", "<|end|>", "<|return|>"],
+                    # <|end|> is NOT here: it terminates reasoning blocks, firing
+                    # too early if the model ignores Reasoning: off.  <|call|>
+                    # stops tool calls; <|return|> is the true EOS.
+                    "stop": ["<|call|>", "<|return|>"],
                     "stream": False,
                 }).encode()
                 req = urllib.request.Request(
@@ -450,7 +453,7 @@ class LLMEnv(_StubEnv):
             "<|start|>system<|message|>"
             "You are ChatGPT, a large language model trained by OpenAI.\n"
             f"Knowledge cutoff: 2024-06\nCurrent date: {today}\n\n"
-            "Reasoning: medium\n\n"
+            "Reasoning: off\n\n"
             "# Valid channels: analysis, commentary, final. "
             "Channel must be included for every message.\n"
             "Calls to these tools must go to the commentary channel: 'functions'."
@@ -527,13 +530,19 @@ class LLMEnv(_StubEnv):
     def _gpt_oss_parse(self, raw: str) -> tuple[str, list]:
         """
         Parse one GPT-OSS raw completion.
-        Tool call: raw starts with "to=functions.NAME<|channel|>commentary json<|message|>ARGS"
+
+        Generation is stopped at <|call|> (tool call) or <|return|> (EOS).
+        <|end|> is NOT a stop token so reasoning blocks don't cut us off early.
+
+        Tool call: raw contains "to=functions.NAME<|channel|>commentary json<|message|>ARGS"
+          (may be preceded by a reasoning block if model ignores Reasoning: off)
         Final response: raw contains "<|channel|>final<|message|>TEXT"
         """
         from types import SimpleNamespace
         raw = raw.strip()
 
-        m = _GPT_OSS_TC_RE.match(raw)
+        # Use search (not match) so a leading reasoning block doesn't block detection
+        m = _GPT_OSS_TC_RE.search(raw)
         if m:
             fn_name  = m.group(1)
             args_str = m.group(2).strip() or "{}"
@@ -550,6 +559,7 @@ class LLMEnv(_StubEnv):
 
         if "<|channel|>final<|message|>" in raw:
             content = raw.split("<|channel|>final<|message|>", 1)[1]
+            content = content.removesuffix("<|end|>").strip()
         else:
             content = raw
         if self._verbose and content:
