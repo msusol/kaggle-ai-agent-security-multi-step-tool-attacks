@@ -153,21 +153,25 @@ class AttackAlgorithm(AttackAlgorithmBase):
         algo_c = TaintChainStrategy(verbose=self.verbose)
         budget_c = budget_for("C")
 
+        _c_trace_cache: dict[str, dict] = {}
         c_candidates = algo_c.run(
             env, config,
             time_limit=min(budget_c, remaining() - 2 * safety_margin),
+            trace_store=_c_trace_cache,  # algo_c populates this — no re-runs needed
         )
         all_candidates.extend(c_candidates)
-        # Cache traces so Phase B seeding can reuse them without re-running Gemma
-        _c_trace_cache: dict[str, dict] = {}
+        # Update global_seen from captured traces (zero extra Gemma calls)
         for c in c_candidates:
             key = str(c.user_messages)
-            if key not in _c_trace_cache:
+            if key in _c_trace_cache:
+                global_seen_sigs |= unique_signatures(_c_trace_cache[key])
+            else:
+                # Fallback: candidate added without trace capture (shouldn't happen)
                 env.reset()
                 for step in c.user_messages:
                     env.interact(step, max_tool_hops=config.max_tool_hops)
                 _c_trace_cache[key] = env.export_trace_dict()
-            global_seen_sigs |= unique_signatures(_c_trace_cache[key])
+                global_seen_sigs |= unique_signatures(_c_trace_cache[key])
 
         log_score("After C")
 
@@ -207,7 +211,8 @@ class AttackAlgorithm(AttackAlgorithmBase):
             env, config,
             seed_entries=seed_entries,
             global_seen=global_seen_sigs,
-            time_limit=min(budget_b, remaining() - 2 * safety_margin),
+            # Reserve Phase D's full budget before letting B run
+            time_limit=min(budget_b, remaining() - 2 * safety_margin - budget_for("D")),
         )
         all_candidates.extend(b_candidates)
         for c in b_candidates:

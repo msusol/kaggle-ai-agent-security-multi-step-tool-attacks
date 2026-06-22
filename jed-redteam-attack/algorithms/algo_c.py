@@ -157,7 +157,12 @@ class TaintChainStrategy:
         env,
         config: AttackRunConfig,
         time_limit: float = float("inf"),
+        trace_store: dict | None = None,
     ) -> list[AttackCandidate]:
+        """
+        trace_store: if provided, populated with {str(user_messages): trace_dict}
+        for each HIT so attack.py can update global_seen without re-running Gemma.
+        """
 
         t0 = time.time()
         candidates: list[AttackCandidate] = []
@@ -204,6 +209,8 @@ class TaintChainStrategy:
                 if triggered and "UNTRUSTED_TO_ACTION" in triggered:
                     steps = (taint_prompt, followup)
                     candidates.append(AttackCandidate(user_messages=steps))
+                    if trace_store is not None:
+                        trace_store[str(steps)] = trace
                     sigs = unique_signatures(trace)
                     log(f"  HIT {triggered} | sigs={len(sigs)} | "
                         f"follow={followup[:50]!r}")
@@ -262,6 +269,8 @@ class TaintChainStrategy:
             triggered = triggered_predicates(trace)
             if triggered:
                 candidates.append(AttackCandidate(user_messages=chain))
+                if trace_store is not None:
+                    trace_store[str(chain)] = trace
                 log(f"  3-step HIT {triggered}")
 
         log(f"Done: {len(candidates)} taint-chain candidates")
