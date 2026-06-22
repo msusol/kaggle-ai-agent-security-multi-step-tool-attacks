@@ -368,55 +368,76 @@ class LLMEnv(_StubEnv):
 
     # ── GPT-OSS raw completion path ───────────────────────────────────────────
 
-    def _llm_call_gpt_oss(self, messages: list[dict]) -> tuple[str, list]:
+    def _discover_call_tokens(self) -> dict[str, float]:
         """
-        Use llama-server's native /completion endpoint (NOT /v1/chat/completions)
-        to bypass the --jinja PEG parser entirely.
-
-        Requires llama-serve.sh to start GPT-OSS WITHOUT --jinja so <|call|>
-        tokens are never intercepted server-side.
-
-        We pass the formatted prompt as a TEXT STRING (not token IDs).  The
-        native /completion endpoint tokenises strings internally with
-        parse_special=true AND add_special=true (BOS prepended), which is what
-        the model expects.  Sending a pre-tokenised array without BOS (via the
-        /tokenize → [ids] → /completion two-step) produces ??? degeneration
-        because the model has no BOS token to anchor the context.
-
-        Generation halts at <|call|> (tool call) or <|return|> (true EOS).
-        <|end|> is intentionally excluded: it closes reasoning blocks, so
-        including it would stop us before the tool call follows the reasoning.
+        Discover token IDs for <|call|>, <|calls|>, <|flush|> via /tokenize.
+        Returns a logit_bias dict {str(token_id): -100.0} to suppress them.
+        Called once per LLMEnv instance and cached in self._gpt_oss_bias.
         """
         import urllib.request
-
-        prompt = self._gpt_oss_prompt(messages)
+        bias: dict[str, float] = {}
         native = self._base_url.rstrip("/").removesuffix("/v1")
+        for tok in ("<|call|>", "<|calls|>", "<|flush|>"):
+            try:
+                data = json.dumps({"content": tok, "parse_special": True}).encode()
+                req = urllib.request.Request(
+                    f"{native}/tokenize", data=data,
+                    headers={"Content-Type": "application/json"}, method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=5) as r:
+                    ids = json.loads(r.read())["tokens"]
+                if len(ids) == 1:
+                    bias[str(ids[0])] = -100.0
+                    print(f"[gpt-oss] logit_bias: {tok!r} → token {ids[0]}")
+            except Exception:
+                pass
+        return bias
+
+    def _llm_call_gpt_oss(self, messages: list[dict]) -> tuple[str, list]:
+        """
+        Use /v1/chat/completions + --jinja (required for correct GPT-OSS
+        tokenisation via Jinja2 template) with logit_bias to suppress <|call|>.
+
+        All native /completion approaches (/tokenize+ids, string prompt)
+        produce ??? degeneration because the server's fallback built-in
+        template generates different token IDs than the GGUF's Jinja2 template.
+        Only /v1/chat/completions + --jinja produces the right context.
+
+        The PEG parser fires when the model generates <|call|>.  Suppressing
+        <|call|> (and its variants <|calls|>, <|flush|>) via logit_bias=-100
+        forces the model to output the tool call content:
+            "to=functions.X<|channel|>commentary json<|message|>{args}"
+        and then emit EOS instead of <|call|>.  No PEG parser → no 500.
+        We parse the raw content with _gpt_oss_parse.
+        """
+        if not hasattr(self, "_gpt_oss_bias"):
+            self._gpt_oss_bias = self._discover_call_tokens()
 
         for attempt in range(self._max_retries + 1):
             try:
-                comp_data = json.dumps({
-                    "prompt": prompt,   # string → server tokenises with parse_special=true + BOS
-                    "n_predict": 1024,
-                    "temperature": 0.0,
-                    "stop": ["<|call|>", "<|return|>"],
-                    "stream": False,
-                }).encode()
-                req = urllib.request.Request(
-                    f"{native}/completion",
-                    data=comp_data,
-                    headers={"Content-Type": "application/json"},
-                    method="POST",
+                resp = self._client.chat.completions.create(
+                    model=self._model,
+                    messages=messages,
+                    tools=COMPETITION_TOOLS,
+                    tool_choice="auto",
+                    temperature=0.0,
+                    max_tokens=512,
+                    stop=["<|end|>", "<|return|>"],
+                    logit_bias=self._gpt_oss_bias or None,
                 )
-                with urllib.request.urlopen(req, timeout=120) as r:
-                    raw = json.loads(r.read()).get("content", "")
-
-                print(f"[gpt-oss] raw={raw[:120]!r}")
+                choice = resp.choices[0]
+                if choice.message.tool_calls:
+                    # logit_bias partially worked but PEG still ran — trust it
+                    return choice.message.content or "", choice.message.tool_calls
+                raw = choice.message.content or ""
+                print(f"[gpt-oss bias] finish={choice.finish_reason!r} raw={raw[:120]!r}")
                 return self._gpt_oss_parse(raw)
 
             except Exception as e:
-                if attempt == self._max_retries:
-                    print(f"[LLMEnv] GPT-OSS error: {e}")
-                    return "", []
+                if attempt < self._max_retries:
+                    continue
+                print(f"[LLMEnv] GPT-OSS error: {e}")
+                return "", []
         return "", []
 
     def _gpt_oss_prompt(self, messages: list[dict]) -> str:

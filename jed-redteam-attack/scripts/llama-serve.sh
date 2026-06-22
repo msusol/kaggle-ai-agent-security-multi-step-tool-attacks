@@ -49,10 +49,14 @@ case "$MODEL" in
         HF_REPO="unsloth/gpt-oss-20b-GGUF"
         HF_FILE="gpt-oss-20b-Q4_K_M.gguf"
         MODEL_ALIAS="gpt_oss"          # → _MODEL_HINT_MAP["gpt_oss"]
-        # NO --jinja: GPT-OSS uses native /tokenize+/completion to bypass the
-        # PEG parser.  --jinja intercepts <|call|> tokens server-side before any
-        # stop sequence can fire, making it impossible to capture raw tool calls.
-        SERVER_FLAGS=""
+        # --jinja is required: the server's fallback built-in template produces
+        # wrong token IDs for GPT-OSS → ??? degeneration.  Only --jinja applies
+        # the GGUF's own Jinja2 template and gives the model the right context.
+        # --reasoning off suppresses thinking tokens (prevents premature <|end|>
+        # from closing a reasoning block before the tool call is generated).
+        # The PEG parser is bypassed via logit_bias=-100 on <|call|> token ID
+        # (see _discover_call_tokens in llm_env.py).
+        SERVER_FLAGS="--jinja --reasoning off"
         ;;
     gemma|gemma4)
         HF_REPO="google/gemma-4-26B-A4B-it-qat-q4_0-gguf"
@@ -149,10 +153,13 @@ trap 'make -C "$REPO_DIR" resume' EXIT
 # ── Serve ──────────────────────────────────────────────────────────────────────
 # /models is mounted read-only inside the container.
 # SERVER_FLAGS is set per-model above:
-#   gpt-oss: "" (no --jinja — PEG parser must be disabled so native
-#            /tokenize+/completion can capture raw <|call|> output)
-#   gemma:   "--jinja" (render_tool_namespace injects TypeScript tool defs;
-#            Gemma's tool-call output is valid PEG and works via tools-api)
+#   gpt-oss: "--jinja --reasoning off"
+#     --jinja: required for correct GPT-OSS tokenisation (GGUF Jinja2 template).
+#     --reasoning off: suppress thinking tokens so <|end|> doesn't fire early.
+#     PEG bypass: done client-side via logit_bias on <|call|> token.
+#   gemma: "--jinja"
+#     --jinja: render_tool_namespace injects TypeScript tool defs;
+#     Gemma's PEG output is valid so no logit_bias needed.
 # --n_gpu_layers -1 offloads all layers to GPU (fits in 128 GB unified memory).
 docker run --rm \
     --privileged \
