@@ -371,21 +371,58 @@ class LLMEnv(_StubEnv):
     def _llm_call_gpt_oss(self, messages: list[dict]) -> tuple[str, list]:
         """
         Bypass /v1/chat/completions for GPT-OSS to avoid the PEG parser.
-        Formats the full <|start|> prompt manually and calls /v1/completions.
-        Stops on <|call|> (tool call) or <|end|>/<|return|> (final response).
+
+        /v1/completions tokenizes the raw string with parse_special=false, so
+        <|start|>, <|message|>, <|call|> etc. become individual characters and
+        the model sees garbage → ??? degeneration.
+
+        Fix: use llama-server's native endpoints instead:
+          POST /tokenize  {"content": prompt, "add_special": false}
+            → token IDs with special tokens correctly recognised (parse_special=true)
+          POST /completion {"prompt": [token_ids], "n_predict": 512, ...}
+            → inference over the correct token sequence; no PEG parser
         """
+        import urllib.request
+
         prompt = self._gpt_oss_prompt(messages)
+        # Base URL without the /v1 suffix → native llama-server API
+        native = self._base_url.rstrip("/").removesuffix("/v1")
+
         for attempt in range(self._max_retries + 1):
             try:
-                resp = self._client.completions.create(
-                    model=self._model,
-                    prompt=prompt,
-                    temperature=0.0,
-                    max_tokens=512,
-                    stop=["<|call|>", "<|end|>", "<|return|>"],
+                # Step 1: tokenize with special-token recognition
+                tok_data = json.dumps({
+                    "content": prompt,
+                    "add_special": False,   # no extra BOS; prompt is self-contained
+                }).encode()
+                req = urllib.request.Request(
+                    f"{native}/tokenize",
+                    data=tok_data,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
                 )
-                raw = resp.choices[0].text or ""
+                with urllib.request.urlopen(req, timeout=30) as r:
+                    token_ids: list[int] = json.loads(r.read())["tokens"]
+
+                # Step 2: complete from token IDs (no re-tokenization)
+                comp_data = json.dumps({
+                    "prompt": token_ids,
+                    "n_predict": 512,
+                    "temperature": 0.0,
+                    "stop": ["<|call|>", "<|end|>", "<|return|>"],
+                    "stream": False,
+                }).encode()
+                req = urllib.request.Request(
+                    f"{native}/completion",
+                    data=comp_data,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=120) as r:
+                    raw = json.loads(r.read()).get("content", "")
+
                 return self._gpt_oss_parse(raw)
+
             except Exception as e:
                 if attempt == self._max_retries:
                     print(f"[LLMEnv] GPT-OSS error: {e}")
