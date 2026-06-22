@@ -148,7 +148,7 @@ _SYSTEM_TOOLS_API = (
 
 # Models that require structured tools= API (llama-server --jinja PEG-native format).
 # These are the exact competition models; other models use TEXT mode.
-_COMPETITION_MODELS = {"gpt_oss", "gemma"}
+_COMPETITION_MODELS = {"gpt_oss", "gpt-oss", "gemma"}
 
 
 class LLMEnv(_StubEnv):
