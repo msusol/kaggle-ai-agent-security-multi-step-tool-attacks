@@ -25,14 +25,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"   # jed-redteam-attack/
 VENV="$HOME/LosusAI/Projects/Kaggle/.venv"
 PYTHON="$VENV/bin/python"
-# Prefer venv kaggle; fall back to miniconda/system kaggle
-if [[ -f "$VENV/bin/kaggle" ]]; then
-    KAGGLE="$VENV/bin/kaggle"
-elif command -v kaggle &>/dev/null; then
-    KAGGLE="$(command -v kaggle)"
-else
-    KAGGLE="$VENV/bin/kaggle"  # will fail sanity check below with helpful message
-fi
+KAGGLE="$VENV/bin/kaggle"
 
 DATASET_STAGING="/tmp/jed-dataset"
 KERNEL_STAGING="/tmp/jed-kernel"
@@ -88,8 +81,8 @@ echo ""
 if [[ "$PUSH_DATASET" == "true" ]]; then
     echo "[1/4] Building aicomp_sdk wheel..."
     cd "$REPO_DIR"
-    "$PYTHON" -m build --wheel --outdir . --no-isolation 2>&1 | grep -E "wheel|error|warning|Successfully" || true
-    WHEEL=$(ls "$REPO_DIR"/aicomp_sdk-*.whl 2>/dev/null | sort -V | tail -1)
+    "$PYTHON" -m build --wheel --outdir . --no-isolation 2>&1 | grep -E "wheel|error|warning|Successfully"
+    WHEEL=$(ls "$SCRIPT_DIR"/aicomp_sdk-*.whl 2>/dev/null | sort -V | tail -1)
     [[ -f "$WHEEL" ]] || { echo "ERROR: wheel not found after build"; exit 1; }
     echo "  wheel: $(basename "$WHEEL")"
     echo ""
