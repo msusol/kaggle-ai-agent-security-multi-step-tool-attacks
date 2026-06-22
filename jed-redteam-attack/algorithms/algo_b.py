@@ -84,7 +84,7 @@ class BeamSearchStrategy:
         candidates: list[AttackCandidate] = []
 
         def elapsed() -> float: return time.time() - t0
-        def ok(margin: float = 5) -> bool: return elapsed() + margin < time_limit
+        def ok(margin: float = 15) -> bool: return elapsed() + margin < time_limit
         def log(msg: str) -> None:
             if self.verbose: print(f"  [B t={elapsed():.0f}s] {msg}")
 
