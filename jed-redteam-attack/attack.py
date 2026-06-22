@@ -263,8 +263,10 @@ class AttackAlgorithm(AttackAlgorithmBase):
                 seen.add(key)
                 unique.append(c)
 
-        # Cap at 2000 (competition limit)
-        unique = unique[:2000]
+        # Cap at 100: replay runs each candidate against the real LLM (~90-150s each
+        # at competition model speed). Replay budget = 9000s → ~60-100 candidates safe.
+        # Exceeding the replay budget after the Monday evaluator update → score=0.
+        unique = unique[:100]
 
         print(f"\n{'='*60}")
         print(f"  FINAL: {len(unique)} unique candidates returned")
