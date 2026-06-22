@@ -22,6 +22,7 @@ not competition ranking.
 | v0.11 | dgx-local | gemma | 0.27 | 54.0 | 5 | 4 | 300s | Fixed -150 margin; Phase C found 3 candidates but re-run overhead (120s) consumed Phase D budget again → time_limit=-0.5s, 0 probes |
 | v0.12 | dgx-local | gemma | 0.27 | 54.0 | 5 | 5 | 300s | Trace cache + early break: Phase B finally explored (2 beam children); Phase B used 77s → Phase D got 1.8s, still 0 probes |
 | v0.13 | dgx-local | gemma | 0.28 | 56.0 | 6 | 9 | 300s | trace_store eliminates Phase C re-runs; Phase B reserves Phase D budget → Phase D got 39.7s, 4 probes, 3 new sigs; all 4 predicates confirmed |
+| v0.14 | dgx-local | gemma | 0.28 | 56.0 | 6 | 9 | 300s | Article #6 taint confirmed (devops.example.com/deploy-guide fires); B margin=15 had no effect on Gen0 overrun; 300s budget ceiling reached |
 
 ## Competition (Kaggle)
 
