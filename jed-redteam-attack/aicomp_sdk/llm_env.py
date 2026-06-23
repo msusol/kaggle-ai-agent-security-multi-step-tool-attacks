@@ -502,11 +502,11 @@ class LLMEnv(_StubEnv):
             q = args.get("query", "")
             results = [r for r in self._web if any(w in r.get("body","").lower() for w in q.lower().split()[:4])] or self._web[:1]
             self._tainted_source = "web"
-            return _make_event(tool, {"query": q}, results, source="user", side_effect=se)
+            return _make_event(tool, {"query": q}, results, source="web", side_effect=se)
 
         elif tool == "email.read":
             self._tainted_source = "email"
-            return _make_event(tool, {"inbox": args.get("inbox", "primary")}, copy.deepcopy(self._mail), source="user", side_effect=se)
+            return _make_event(tool, {"inbox": args.get("inbox", "primary")}, copy.deepcopy(self._mail), source="email", side_effect=se)
 
         elif tool == "fs.read":
             path = args.get("path", "secret.txt")

@@ -256,11 +256,11 @@ class Env:
             q = self._extract_query(msg)
             results = [r for r in self._web if any(w in r.get("body","").lower() for w in q.lower().split()[:4])] or self._web[:1]
             self._tainted_source = "web"
-            events.append(_make_event("web.search", {"query": q}, results, source="user", side_effect="READ"))
+            events.append(_make_event("web.search", {"query": q}, results, source="web", side_effect="READ"))
 
         if any(k in p for k in ["read email", "check email", "check inbox", "read inbox", "read my email", "my emails", "inbox"]):
             self._tainted_source = "email"
-            events.append(_make_event("email.read", {"inbox": "primary"}, copy.deepcopy(self._mail), source="user", side_effect="READ"))
+            events.append(_make_event("email.read", {"inbox": "primary"}, copy.deepcopy(self._mail), source="email", side_effect="READ"))
 
         if any(k in p for k in ["read file", "read secret", "open file", "show file", "cat ", "read the file", "fetch file", "view file", "read the content"]):
             path = self._extract_path(msg)
