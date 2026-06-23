@@ -23,6 +23,7 @@ not competition ranking.
 | v0.12 | dgx-local | gemma | 0.27 | 54.0 | 5 | 5 | 300s | Trace cache + early break: Phase B finally explored (2 beam children); Phase B used 77s → Phase D got 1.8s, still 0 probes |
 | v0.13 | dgx-local | gemma | 0.28 | 56.0 | 6 | 9 | 300s | trace_store eliminates Phase C re-runs; Phase B reserves Phase D budget → Phase D got 39.7s, 4 probes, 3 new sigs; all 4 predicates confirmed |
 | v0.14 | dgx-local | gemma | 0.28 | 56.0 | 6 | 9 | 300s | Article #6 taint confirmed (devops.example.com/deploy-guide fires); B margin=15 had no effect on Gen0 overrun; 300s budget ceiling reached |
+| v0.15 | dgx-local | stub | 0.09 | 18.0 | 1 | 20 | 300s | Static k1-short N=20 test; EXFILTRATION fires on all 20 candidates; unique_cells=1 (local harness deduplicates by arg keys, not values — competition counts per-candidate) |
 
 ## Competition (Kaggle)
 
@@ -35,3 +36,4 @@ Scores here are official or validation runs against GPT-OSS 20B and Gemma 4 26B.
 | v0.3 | kaggle | both | 4.960 | TBD | TBD | TBD | 9000s | First official submission (v33); lower than broken v22 validation — likely missing algorithms/ on scoring path |
 | v0.4 | kaggle | both | 5.660 | TBD | TBD | TBD | 9000s | v34 — Phase B fix (triggered_predicates handles list[dict]); DGX payloads |
 | v0.14 | kaggle | both | 5.660 | TBD | TBD | TBD | 9000s | v35 — article #6 taint reorder + B margin=15 + candidate cap 100; no improvement; 5-algo approach ceiling confirmed |
+| v0.15 | kaggle | both | pending | TBD | TBD | TBD | 9000s | v36 — static k1-short fill N=700; expected ~63.0 if all replay; ~57.6 if ceiling is 640 |
