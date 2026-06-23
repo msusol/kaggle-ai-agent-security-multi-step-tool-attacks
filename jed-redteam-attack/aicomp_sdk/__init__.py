@@ -222,9 +222,11 @@ class Env:
         return response
 
     def export_trace_dict(self) -> dict:
+        user_msgs = [m["content"] for m in self._messages if m.get("role") == "user"]
         return {
-            "messages":    copy.deepcopy(self._messages),
-            "tool_events": copy.deepcopy(self._events),
+            "messages":      copy.deepcopy(self._messages),
+            "user_messages": user_msgs,
+            "tool_events":   copy.deepcopy(self._events),
         }
 
     def snapshot(self) -> str:
