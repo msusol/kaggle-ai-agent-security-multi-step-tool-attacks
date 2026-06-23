@@ -117,4 +117,28 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    from datetime import datetime
+    log_dir = Path(__file__).resolve().parent.parent / "logs"
+    log_dir.mkdir(exist_ok=True)
+    log_path = log_dir / f"template_test_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+
+    class Tee:
+        def __init__(self, *streams):
+            self.streams = streams
+        def write(self, data):
+            for s in self.streams:
+                s.write(data)
+                s.flush()
+        def flush(self):
+            for s in self.streams:
+                s.flush()
+
+    with open(log_path, "w") as log_file:
+        sys.stdout = Tee(sys.__stdout__, log_file)
+        sys.stderr = Tee(sys.__stderr__, log_file)
+        main()
+        sys.stdout = sys.__stdout__
+        sys.stderr = sys.__stderr__
+
+    print(f"\nLog saved to {log_path}")
