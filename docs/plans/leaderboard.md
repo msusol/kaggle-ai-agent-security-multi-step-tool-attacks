@@ -38,6 +38,7 @@ Scores here are official or validation runs against GPT-OSS 20B and Gemma 4 26B.
 | v0.14 | kaggle | both | 5.660 | TBD | TBD | TBD | 9000s | v35 — article #6 taint reorder + B margin=15 + candidate cap 100; no improvement; 5-algo approach ceiling confirmed |
 | v0.15 | kaggle | both | pending | TBD | TBD | TBD | 9000s | v36 — static k1-short fill N=700; expected ~63.0 if all replay; ~57.6 if ceiling is 640 |
 | v0.16 | kaggle | both | pending | TBD | TBD | TBD | 9000s | v37 — EXF+CD template; expected ~83.0; REVERTED — pilkwang confirms CD does not add competition score; two tool calls slower → hard 0 risk |
-| v0.17 | kaggle | both | pending | TBD | TBD | TBD | 9000s | v38/v40 — k1-short N=650; safe below N=667 confirmed ceiling; expected 58.5 |
-| v0.18 | kaggle | both | pending | TBD | TBD | TBD | 9000s | v41 — EXF+CD URL-encoded N=600; failed after 5hrs (TOKEN%3Dadmin123 scores 0 EXF under v3.1.2) |
-| v0.19 | kaggle | both | pending | TBD | TBD | TBD | 9000s | v42 — EXF+DW read+post+delete N=300; v3.1.2 correct; 30 pts/candidate DGX confirmed; expected ~30-45 |
+| v0.17 | kaggle | both | CANCELLED | — | — | — | 9000s | v40 — k1-short N=650; cancelled after 15h hang; caught mid-transition on wrong scorer version |
+| v0.18 | kaggle | both | FAILED | — | — | — | 9000s | v41 — EXF+CD URL-encoded N=600; failed after 5hrs; TOKEN%3Dadmin123 scores 0 EXF under v3.1.2 |
+| v0.19 | kaggle | both | FAILED | — | — | — | 9000s | v42 — submission format error; IS_SUBMISSION detection unreliable in scored rerun → else branch ran before serve() |
+| v0.19 | kaggle | both | pending | TBD | TBD | TBD | 9000s | v43 — trimmed notebook (IS_SUBMISSION removed, always serve()); same EXF+DW N=300 attack.py |
