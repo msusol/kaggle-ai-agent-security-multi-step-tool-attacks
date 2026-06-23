@@ -26,9 +26,9 @@ from pathlib import Path
 _v312_path = os.environ.get('V312_SDK', '')
 if _v312_path and Path(_v312_path).is_dir():
     sys.path.insert(0, _v312_path)
-    print(f"[scorer] using v3.1.2 SDK from {_v312_path}")
+    print(f"[scorer] using external SDK from {_v312_path}")
 else:
-    print("[scorer] using local stub (3.1.0.dev0) — set V312_SDK=/tmp/comp-sdk for v3.1.2")
+    print("[scorer] using local aicomp_sdk (predicates.py = v3.1.2 competition logic)")
 
 sys.path.insert(0 if not _v312_path else 1, str(Path(__file__).resolve().parent.parent))
 
