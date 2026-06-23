@@ -34,3 +34,4 @@ Scores here are official or validation runs against GPT-OSS 20B and Gemma 4 26B.
 | v0.2 | kaggle | gemma | 14.48 | ~2,896 | unknown | unknown | 9000s | Validation only (v22); well below baseline (~240/1000) |
 | v0.3 | kaggle | both | 4.960 | TBD | TBD | TBD | 9000s | First official submission (v33); lower than broken v22 validation — likely missing algorithms/ on scoring path |
 | v0.4 | kaggle | both | 5.660 | TBD | TBD | TBD | 9000s | v34 — Phase B fix (triggered_predicates handles list[dict]); DGX payloads |
+| v0.14 | kaggle | both | 5.660 | TBD | TBD | TBD | 9000s | v35 — article #6 taint reorder + B margin=15 + candidate cap 100; no improvement; 5-algo approach ceiling confirmed |
