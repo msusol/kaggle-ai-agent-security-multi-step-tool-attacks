@@ -37,4 +37,5 @@ Scores here are official or validation runs against GPT-OSS 20B and Gemma 4 26B.
 | v0.4 | kaggle | both | 5.660 | TBD | TBD | TBD | 9000s | v34 — Phase B fix (triggered_predicates handles list[dict]); DGX payloads |
 | v0.14 | kaggle | both | 5.660 | TBD | TBD | TBD | 9000s | v35 — article #6 taint reorder + B margin=15 + candidate cap 100; no improvement; 5-algo approach ceiling confirmed |
 | v0.15 | kaggle | both | pending | TBD | TBD | TBD | 9000s | v36 — static k1-short fill N=700; expected ~63.0 if all replay; ~57.6 if ceiling is 640 |
-| v0.16 | kaggle | both | pending | TBD | TBD | TBD | 9000s | v37 — EXF+CD template; 24 pts/candidate vs 18; expected ~83.0; UNTRUSTED_TO_ACTION ruled out (requires fixture injection) |
+| v0.16 | kaggle | both | pending | TBD | TBD | TBD | 9000s | v37 — EXF+CD template; expected ~83.0; REVERTED — pilkwang confirms CD does not add competition score; two tool calls slower → hard 0 risk |
+| v0.17 | kaggle | both | pending | TBD | TBD | TBD | 9000s | v38 — k1-short N=650; safe below N=667 confirmed ceiling; hard 0 if over budget; expected 58.5 |
