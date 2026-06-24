@@ -41,4 +41,4 @@ Scores here are official or validation runs against GPT-OSS 20B and Gemma 4 26B.
 | v0.17 | kaggle | both | CANCELLED | — | — | — | 9000s | v40 — k1-short N=650; cancelled after 15h hang; caught mid-transition on wrong scorer version |
 | v0.18 | kaggle | both | FAILED | — | — | — | 9000s | v41 — EXF+CD URL-encoded N=600; failed after 5hrs; TOKEN%3Dadmin123 scores 0 EXF under v3.1.2 |
 | v0.19 | kaggle | both | FAILED | — | — | — | 9000s | v42 — submission format error; IS_SUBMISSION detection unreliable in scored rerun → else branch ran before serve() |
-| v0.19 | kaggle | both | pending | TBD | TBD | TBD | 9000s | v43 — trimmed notebook (IS_SUBMISSION removed, always serve()); same EXF+DW N=300 attack.py |
+| v0.19 | kaggle | both | pending | TBD | TBD | TBD | 9000s | v43 — trimmed notebook (IS_SUBMISSION removed, always serve()); same EXF+DW N=300 attack.py; submitted 2026-06-24 ref#53994226 |
