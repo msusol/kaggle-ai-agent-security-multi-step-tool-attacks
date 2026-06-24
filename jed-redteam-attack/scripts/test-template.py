@@ -34,7 +34,7 @@ sys.path.insert(0 if not _v312_path else 1, str(Path(__file__).resolve().parent.
 
 from local_harness import make_env
 from aicomp_sdk import AttackRunConfig
-from algorithms.scoring import triggered_predicates, unique_signatures, WEIGHTS, SEVERITY
+from scoring import triggered_predicates, unique_signatures, WEIGHTS, SEVERITY
 
 # ── Templates to test ─────────────────────────────────────────────────────────
 TEMPLATES = [
