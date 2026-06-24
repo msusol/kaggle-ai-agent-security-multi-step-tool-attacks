@@ -20,18 +20,23 @@ cp jed-redteam-attack/kernel-metadata.json /tmp/jed-kernel/kernel-metadata.json
 The staging dir is required because Kaggle's CLI expects the metadata file
 named exactly `kernel-metadata.json`.
 
-## GPU model selection — UI only
+## GPU / accelerator selection
 
-`enable_gpu: true` in metadata means "use a GPU" but Kaggle assigns T4 by
-default. **Specific GPU selection (P100, T4 x2) must be done manually in the
-Kaggle editor UI** — there is no metadata field for it.
+Our competition notebook does **not** need a GPU. It copies `attack.py` and
+calls `serve()` — a lightweight Python server. LLM inference (GPT-OSS 20B,
+Gemma 4 26B) is done by the competition evaluator on its own GPU infrastructure.
+GPU is intentionally disabled (`enable_gpu: false`) — P100 is not allowed in
+the competition and a GPU adds no value to our notebook.
+
+The `machine_shape` field in `kernel-metadata.json` (or `--accelerator ACC` on
+`kaggle kernels push`) can specify: `NvidiaTeslaT4`, `NvidiaTeslaP100`, or
+`Tpu1VmV38`. **2×T4 is not available via the API** — it must be set in the
+Kaggle editor UI. Do not add `machine_shape` to our metadata.
 
 Correct workflow after every push:
 
 1. `kaggle kernels push` → updates code; auto-starts a committed run
-2. If a different GPU tier is needed: **stop the auto-run in Kaggle UI**
-3. Right panel → **Accelerator → desired GPU**
-4. **Save Version → Save & Run All**
+2. No GPU change needed for this competition notebook.
 
 ## kernel-metadata.json fields
 
@@ -45,7 +50,7 @@ Correct workflow after every push:
 | `language` | `python` |
 | `kernel_type` | `notebook` |
 | `is_private` | `true` |
-| `enable_gpu` | `true` |
+| `enable_gpu` | `false` (competition notebook doesn't run LLMs; evaluator has its own GPU) |
 | `enable_internet` | `false` |
 | `dataset_sources` | `["gdataranger/jed-aicomp-sdk"]` |
 | `competition_sources` | `["ai-agent-security-multi-step-tool-attacks"]` |
