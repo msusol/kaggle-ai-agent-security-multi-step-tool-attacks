@@ -9,11 +9,22 @@ version-controlled metadata files.
 
 ## Push workflow
 
+Before every push, update Cell 1 (id `md-header`) of `kaggle_notebook.ipynb`
+with the version, strategy, and budget so the kernel version history is
+self-documenting. Format: `v0.## ATTACK_TYPES strategy budget`.
+
+Example Cell 1 line:
+```
+v0.24 EXF+CD dynamic-N 9000s: `SECRET_MARKER` posts + `CONFUSED_DEPUTY`.
+```
+
+`kaggle kernels push` has no `--message` flag; Cell 1 is the only audit trail.
+
 ```zsh
 mkdir -p /tmp/jed-kernel
 cp jed-redteam-attack/kaggle_notebook.ipynb /tmp/jed-kernel/
 cp jed-redteam-attack/kernel-metadata.json /tmp/jed-kernel/kernel-metadata.json
-/Users/marksusol/LosusAI/Projects/Kaggle/.venv/bin/kaggle kernels push \
+/home/msusol/miniconda3/bin/kaggle kernels push \
   -p /tmp/jed-kernel
 ```
 
@@ -65,36 +76,32 @@ Model source format: `{owner}/{model-slug}/{framework}/{instance}/{version}` —
 
 Do not add or remove inputs via the Kaggle UI after the first-time setup — use `kernel-metadata.json` and push.
 
-## Updating the SDK dataset after code changes
+## Updating the dataset after code changes
 
-When `attack.py`, `payloads/library.py`, `algorithms/`, or `aicomp_sdk/`
-change, publish a new dataset version before pushing the notebook:
+When `attack.py` or `local_harness.py` change, publish a new dataset version before
+pushing the notebook. The dataset contains only these two files — no wheel, no SDK.
+The competition environment provides `aicomp_sdk` itself.
 
 ```zsh
-# 1. Rebuild the wheel
+# 1. Stage only the needed files — kaggle CLI uploads everything in -p dir
 cd jed-redteam-attack
-/Users/marksusol/LosusAI/Projects/Kaggle/.venv/bin/python \
-  -m build --wheel --outdir .
-
-# 2. Stage only the needed files — kaggle CLI uploads everything in -p dir
 mkdir -p /tmp/jed-dataset
-cp aicomp_sdk-3.1.0.dev0-py3-none-any.whl /tmp/jed-dataset/
 cp attack.py /tmp/jed-dataset/
 cp local_harness.py /tmp/jed-dataset/
 cp dataset-metadata.json /tmp/jed-dataset/
 cp dataset-cover-image.png /tmp/jed-dataset/  # CLI auto-uploads as cover image
 
-# 3. Publish updated dataset version
-/Users/marksusol/LosusAI/Projects/Kaggle/.venv/bin/kaggle \
+# 2. Publish updated dataset version
+/home/msusol/miniconda3/bin/kaggle \
   datasets version \
   -p /tmp/jed-dataset/ \
-  -m "describe what changed"
+  -m "v0.## brief description of change"
 
-# 4. Push the notebook
+# 3. Push the notebook (after updating Cell 1 version label)
 mkdir -p /tmp/jed-kernel
 cp kaggle_notebook.ipynb /tmp/jed-kernel/
 cp kernel-metadata.json /tmp/jed-kernel/kernel-metadata.json
-/Users/marksusol/LosusAI/Projects/Kaggle/.venv/bin/kaggle kernels push \
+/home/msusol/miniconda3/bin/kaggle kernels push \
   -p /tmp/jed-kernel
 ```
 
