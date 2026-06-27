@@ -25,7 +25,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"   # jed-redteam-attack/
 VENV="$HOME/LosusAI/Projects/Kaggle/.venv"
 PYTHON="$VENV/bin/python"
-KAGGLE="$VENV/bin/kaggle"
+KAGGLE="$(command -v kaggle 2>/dev/null || echo /home/msusol/miniconda3/bin/kaggle)"
 
 DATASET_STAGING="/tmp/jed-dataset"
 KERNEL_STAGING="/tmp/jed-kernel"

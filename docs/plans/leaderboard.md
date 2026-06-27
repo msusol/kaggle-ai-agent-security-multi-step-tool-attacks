@@ -32,22 +32,29 @@ Source: `docs/investigate/2026-06-23-v0.19-dgx-gemma-run.md`
 | v0.25 | kaggle | both | FAILED | v59 — replay timeout; N=80 3-post/cand still > 9,000s replay budget |
 | **v0.27** | **kaggle** | **both** | **13.500** | **v61 — N=150 1-post/cand, SECRET_MARKER; 18 pts × 150 / 20,000 × 100 = 13.5** |
 | **v0.28** | **kaggle** | **both** | **15.120** | **v63 — N=168 1-post/cand, _safe_n guardrail; 168 × 40s = 6,720s confirmed safe** |
-| **v0.29** | **kaggle** | **both** | **18.000** | **v64 — N=200; 200 × 40s = 8,000s confirmed safe; t_cand ≤ 45s** |
+| **v0.29** | **kaggle** | **both** | **18.000** | **v64 — N=200; confirmed safe; t_cand ≤ 45s** |
+| **v0.30** | **kaggle** | **both** | **20.250** | **v65 — N=225; 225 × 18 / 20,000 × 100 = 20.25; all candidates converting** |
+| **v0.31** | **kaggle** | **both** | **pending** | **v66 — N=400; t_cand recalibrated to 17s (kawasaki empirical); expected 36.0** |
 
 **Replay timeout confirmed:** evaluator update (712642) introduced 9,000s hard limit per phase.
 N=461 × actual Gemma replay time (>19.5s) > 9,000s → fail-fast → blank score.
 kawasaki confirmed: N=800 → SubmissionFormat Error; smaller N → scored.
 
-**v0.27 result (2026-06-26):** 13.500 public score — new competition best (prev: 5.660).
-1-post/cand eliminates 3× tool-hop overhead. N=150 × ~40s/cand = 6,000s < 9,000s replay budget.
-SECRET_MARKER confirmed working under updated scorer. EXF does NOT require fs.read in-trace.
+**v3.1.2 leaderboard context (2026-06-27):** Public leaderboard top scores (57–100) are ALL from
+old v3.1.0beta evaluator and are permanently frozen (no rescore). Several score 0 under v3.1.2.
+Best confirmed v3.1.2 score externally: 27.0. Our 20.25 (v0.30) is in contention for #2 under
+current scorer. New evaluator is ~3× slower: t_cand ≈ 17s (vs ~13s old). N_max ≈ 476 safe.
 
-## v0.29 (current)
+**Timing recalibration (kawasaki, post v3.1.2):**
+- N=100 → ~2h total → t_cand ≈ 18s
+- N=200 → 3.5h total → t_cand ≈ 15.75s
+- N=400 → 7h40m total → t_cand ≈ 17.25s (confirmed safe, used for v0.31)
+
+## v0.31 (current)
 
 - **Template:** EXF-only — `SECRET_MARKER` heartbeat, 1 http.post per candidate
-- **N=200** with `_safe_n` guardrail; scored 18.000 (18 pts/cand × 200 / 20,000 × 100)
-- **Timing calibrated:** t_cand ≤ 45s (9,000 / 200); all candidates converting (100% hit rate)
-- **Next:** v0.30 — push `_N` to 225; expected ~20.25; 225 × 40s = 9,000s (borderline → calibrate _SECS_PER_CAND)
+- **N=400** with `_safe_n` guardrail (`_SECS_PER_CAND=17`); expected 36.0
+- **Next:** v0.32 — push `_N` toward 470; or pivot to stacking if timing allows
 
 ---
 
