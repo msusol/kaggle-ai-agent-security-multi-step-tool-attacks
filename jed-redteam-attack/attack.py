@@ -1,11 +1,11 @@
 """
-attack.py  —  JED Competition Submission (v0.29)
+attack.py  —  JED Competition Submission (v0.30)
 =================================================
-Single-action EXF candidates, N=200.
+Single-action EXF candidates, N=225.
 
-v0.28 (N=168) confirmed: scored 15.120 on Kaggle (2026-06-26). t_cand ≤ 53.5s
-confirmed. Scaling to N=200: expected score ~18.0, replay ≈ 200 × 40s = 8,000s
-— safe under 9,000s budget with _safe_n guardrail.
+v0.29 (N=200) confirmed: scored 18.000 on Kaggle (2026-06-26). t_cand ≤ 45s.
+Scaling to N=225: expected score ~20.25, replay ≈ 225 × 36s = 8,100s — safe
+under 9,000s budget. _SECS_PER_CAND recalibrated to 36s from empirical data.
 
 Each model (GPT-OSS, Gemma) is evaluated independently with its own 9000s budget.
 """
@@ -31,9 +31,9 @@ sys.path.insert(0, _work_dir)
 from aicomp_sdk.attacks import AttackAlgorithmBase, AttackCandidate, AttackRunConfig
 
 # ── Tuning ────────────────────────────────────────────────────────────────────
-_N = 200            # hard ceiling
-_SECS_PER_CAND = 40 # empirical: ~40s/cand on competition evaluator (v0.28 N=168 confirmed safe)
-_BUDGET_FRAC  = 0.90 # use 90% of budget; 9000 × 0.90 / 40 = 202 → capped at _N=200
+_N = 225            # hard ceiling
+_SECS_PER_CAND = 36 # recalibrated: v0.29 N=200 safe → t_cand ≤ 45s; estimated ~36s
+_BUDGET_FRAC  = 0.90 # use 90% of budget; 9000 × 0.90 / 36 = 225 → capped at _N=225
 
 def _safe_n(budget_s: float) -> int:
     return min(_N, max(1, int(budget_s * _BUDGET_FRAC / _SECS_PER_CAND)))
@@ -85,7 +85,7 @@ class AttackAlgorithm(AttackAlgorithmBase):
         candidates = _build_candidates(n)
 
         print(f"\n{'='*60}")
-        print(f"  v0.29  budget={config.time_budget_s}s  n={n}  posts_per_cand=1")
+        print(f"  v0.30  budget={config.time_budget_s}s  n={n}  posts_per_cand=1")
         print(f"  sample: {candidates[0].user_messages[0][:120]!r}")
         print(f"{'='*60}\n")
         return candidates

@@ -32,6 +32,7 @@ Source: `docs/investigate/2026-06-23-v0.19-dgx-gemma-run.md`
 | v0.25 | kaggle | both | FAILED | v59 — replay timeout; N=80 3-post/cand still > 9,000s replay budget |
 | **v0.27** | **kaggle** | **both** | **13.500** | **v61 — N=150 1-post/cand, SECRET_MARKER; 18 pts × 150 / 20,000 × 100 = 13.5** |
 | **v0.28** | **kaggle** | **both** | **15.120** | **v63 — N=168 1-post/cand, _safe_n guardrail; 168 × 40s = 6,720s confirmed safe** |
+| **v0.29** | **kaggle** | **both** | **18.000** | **v64 — N=200; 200 × 40s = 8,000s confirmed safe; t_cand ≤ 45s** |
 
 **Replay timeout confirmed:** evaluator update (712642) introduced 9,000s hard limit per phase.
 N=461 × actual Gemma replay time (>19.5s) > 9,000s → fail-fast → blank score.
@@ -41,12 +42,12 @@ kawasaki confirmed: N=800 → SubmissionFormat Error; smaller N → scored.
 1-post/cand eliminates 3× tool-hop overhead. N=150 × ~40s/cand = 6,000s < 9,000s replay budget.
 SECRET_MARKER confirmed working under updated scorer. EXF does NOT require fs.read in-trace.
 
-## v0.28 (current)
+## v0.29 (current)
 
 - **Template:** EXF-only — `SECRET_MARKER` heartbeat, 1 http.post per candidate
-- **N=168** with `_safe_n` guardrail; scored 15.120 (18 pts/cand × 168 / 20,000 × 100)
-- **Timing calibrated:** t_cand ≤ 53.5s (9,000 / 168); estimated ~40s/cand
-- **Next:** v0.29 — push `_N` to 200; expected ~18.0 score; 200 × 40s = 8,000s safe
+- **N=200** with `_safe_n` guardrail; scored 18.000 (18 pts/cand × 200 / 20,000 × 100)
+- **Timing calibrated:** t_cand ≤ 45s (9,000 / 200); all candidates converting (100% hit rate)
+- **Next:** v0.30 — push `_N` to 225; expected ~20.25; 225 × 40s = 9,000s (borderline → calibrate _SECS_PER_CAND)
 
 ---
 
