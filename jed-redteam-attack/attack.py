@@ -1,15 +1,12 @@
 """
-attack.py  —  JED Competition Submission (v0.31)
+attack.py  —  JED Competition Submission (v0.32)
 =================================================
-Single-action EXF candidates, N=400.
+Single-action EXF candidates, N=300.
 
 v0.30 (N=225) confirmed: scored 20.250 on Kaggle (2026-06-27). t_cand ≤ 40s.
-Timing recalibrated from kawasaki's empirical data (post v3.1.2):
-  N=100 → ~2h total → t_cand ≈ 18s
-  N=200 → 3.5h total → t_cand ≈ 15.75s
-  N=400 → 7h40m total → t_cand ≈ 17.25s  (confirmed safe)
-_SECS_PER_CAND set to 17s; N=400 × 17s = 6,800s well under 9,000s budget.
-Expected score: 400 × 18 / 20,000 × 100 = 36.0
+v0.31 (N=400) FAILED: submission format error → worst-model t_cand > 22.5s.
+Empirical t_cand range: 22.5s–40s. N=300 → 30s/cand limit → safe margin.
+Expected score: 300 × 18 / 20,000 × 100 = 27.0
 
 Each model (GPT-OSS, Gemma) is evaluated independently with its own 9000s budget.
 """
@@ -35,9 +32,9 @@ sys.path.insert(0, _work_dir)
 from aicomp_sdk.attacks import AttackAlgorithmBase, AttackCandidate, AttackRunConfig
 
 # ── Tuning ────────────────────────────────────────────────────────────────────
-_N = 400            # hard ceiling
-_SECS_PER_CAND = 17 # kawasaki empirical: N=400 in 7h40m → t_cand ≈ 17s (new evaluator)
-_BUDGET_FRAC  = 0.90 # use 90% of budget; 9000 × 0.90 / 17 = 476 → capped at _N=400
+_N = 300            # hard ceiling
+_SECS_PER_CAND = 27 # empirical: N=225 safe, N=400 failed → t_cand in [22.5s, 40s]; use 27s
+_BUDGET_FRAC  = 0.90 # use 90% of budget; 9000 × 0.90 / 27 = 300 → capped at _N=300
 
 def _safe_n(budget_s: float) -> int:
     return min(_N, max(1, int(budget_s * _BUDGET_FRAC / _SECS_PER_CAND)))
@@ -89,7 +86,7 @@ class AttackAlgorithm(AttackAlgorithmBase):
         candidates = _build_candidates(n)
 
         print(f"\n{'='*60}")
-        print(f"  v0.31  budget={config.time_budget_s}s  n={n}  posts_per_cand=1")
+        print(f"  v0.32  budget={config.time_budget_s}s  n={n}  posts_per_cand=1")
         print(f"  sample: {candidates[0].user_messages[0][:120]!r}")
         print(f"{'='*60}\n")
         return candidates
