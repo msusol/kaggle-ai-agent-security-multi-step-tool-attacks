@@ -23,7 +23,6 @@ source ~/LosusAI/Projects/Kaggle/.venv/bin/activate
 
 ## Project rules
 
-@.claude/rules/readme-sync.md
-@.claude/rules/leaderboard.md
-@.claude/rules/dgx-long-runs.md
-@.claude/rules/kaggle-notebook-workflow.md
+Leaderboard tracking, DGX tmux discipline, and notebook-push workflow are inherited from
+the shared workspace-root rules — see `../CLAUDE.md` and `../.cline/rules/`. No
+project-specific rules remain here.
