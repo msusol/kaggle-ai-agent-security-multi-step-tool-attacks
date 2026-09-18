@@ -26,4 +26,4 @@ source ~/LosusAI/Projects/Kaggle/.venv/bin/activate
 @.claude/rules/readme-sync.md
 @.claude/rules/leaderboard.md
 @.claude/rules/dgx-long-runs.md
-@.claude/rules/kaggle-notebook-workflow.md
+@.claude/rules/jed-notebook-workflow.md

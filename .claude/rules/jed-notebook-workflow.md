@@ -1,4 +1,4 @@
-# Kaggle Notebook Workflow
+# JED Notebook Workflow
 
 All Kaggle notebook changes (code, metadata, dataset sources) are managed via
 `kaggle kernels push` from the local machine. **Never instruct the user to
